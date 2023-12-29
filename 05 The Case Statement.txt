@@ -1,0 +1,146 @@
+use sql_sales
+--THE CASE STATEMENT
+
+SELECT c.forename
+	,c.surname
+	,ca.address_1
+	,ca.address_2
+	,ca.address_3
+	,ca.address_4
+	,ca.postcode
+	,ca.country_code
+	-----
+	,CASE
+		WHEN ca.country_code = 'UK' THEN 'Europe (UK)'
+		WHEN ca.country_code IN ('ND','DE','FR') THEN 'Mainland Europe'
+		WHEN ca.country_code IN ('US','CA') THEN 'North America'
+		ELSE 'Rest of the World'
+		END as global_region
+	/*
+	Europe (UK)
+	Mainland Europe
+	North America
+	Rest of the World
+	*/
+FROM customers c
+INNER JOIN customer_addresses ca ON c.customer_id = ca.customer_id
+
+
+--age band / gender
+SELECT birth_date
+	,FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) as age
+	,CASE
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 20 THEN 'Under 21'
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 21 and 30 THEN '21 to 30'
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 31 and 40 THEN '31 to 40'
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 41 and 50 THEN '41 to 50'
+		ELSE 'Over 50'
+		END as age_band
+	--------------------------
+	,CASE	--	order of precendence 
+			-- the order in which you list these MATTERS
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 20 THEN 'Under 21'
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 30 THEN '21 to 30'
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 40 THEN '31 to 40'
+		WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 50 THEN '41 to 50'
+		ELSE 'Over 50'
+		END as age_band2
+	--------------------------
+	,gender
+	--alternative structure
+	,CASE gender
+		WHEN 'F' THEN 'Female'
+		WHEN 'M' THEN 'Male'
+		END as gender_desc
+FROM sql_hr.dbo.employees
+
+ORDER BY birth_date
+
+
+--------------------------------------------------
+--CHALLENGES
+
+--1. Create a new column for Department based on the following criteria
+/*
+Anyone with the word ‘Manager’ their job title	Management
+Anyone with the words ‘Team Leader’ their job title	Supervisors
+Anyone with the word ‘Warehouse’ their job title, and all Forklift operators	Warehouse
+Customer Services Assistants	Customer Services
+Anyone in Security	Security
+Cashiers and shelf stackers	Front of House Team
+All Café workers	Catering
+All office personnel	Admin
+General Manager	Senior Management
+*/
+SELECT e.employee_number
+	,e.forename
+	,j.job_title
+	-------------
+	--NESTED CASE STATEMENTS ARE BAD! GET RID OF THEM
+
+	--,CASE
+	--	WHEN j.job_title LIKE '%Manager%' THEN
+
+	--		CASE 
+	--			WHEN j.job_title LIKE '%General%' THEN 'Senior Management'
+	--			ELSE 'Management'
+	--		END
+
+	--	WHEN j.job_title LIKE '%Team Leader%' THEN 'Supervisors'
+	--	WHEN j.job_title LIKE '%Warehouse%' OR j.job_title = 'Forklift Operator' THEN 'Warehouse'
+	--	WHEN j.job_title = 'Customer Service Assistant' THEN 'Customer Services'
+	--	WHEN j.job_title LIKE 'Security%' THEN 'Security'
+	--	WHEN j.job_title IN ('Cashier','Shelf Stacker') THEN 'Front of House Team'
+	--	WHEN j.job_title LIKE '%Cafe%' THEN 'Catering'
+	--	WHEN j.job_title = 'Back Office' THEN 'Admin'
+	--	END as department
+
+	-------------
+	,CASE
+		WHEN j.job_title LIKE 'General Manager' THEN 'Senior Management'
+		WHEN j.job_title LIKE '%Manager%' THEN 'Management'
+		WHEN j.job_title LIKE '%Team Leader%' THEN 'Supervisors'
+		WHEN j.job_title LIKE '%Warehouse%' OR j.job_title = 'Forklift Operator' THEN 'Warehouse'
+		WHEN j.job_title = 'Customer Service Assistant' THEN 'Customer Services'
+		WHEN j.job_title LIKE 'Security%' THEN 'Security'
+		WHEN j.job_title IN ('Cashier','Shelf Stacker') THEN 'Front of House Team'
+		WHEN j.job_title LIKE '%Cafe%' THEN 'Catering'
+		WHEN j.job_title = 'Back Office' THEN 'Admin'
+		END as department_new
+FROM sql_hr.dbo.employees e
+INNER JOIN sql_hr.dbo.job_history jh ON jh.person_id = e.person_id
+INNER JOIN sql_hr.dbo.jobs j ON j.job_id = jh.job_id
+
+
+--2. List all orders from the sales database with an additional column which shows if the orders were taken on weekends or weekdays
+SELECT order_date
+	,DATENAME(WEEKDAY,order_date) as weekday_name
+	,CASE
+		WHEN DATENAME(WEEKDAY,order_date) = 'Saturday' THEN 'Weekend'
+		WHEN DATENAME(WEEKDAY,order_date) = 'Sunday' THEN 'Weekend'
+		ELSE 'Weekday'
+		END as weekend_flag
+	,CASE
+		WHEN DATENAME(WEEKDAY,order_date) IN ('Saturday','Sunday') THEN 'Weekend' 
+		ELSE 'Weekday' 
+		END as weekend_flag2
+FROM orders
+
+
+---------------------------------
+/*
+3. Your employer / client introduces a new long service award with 5 or 10 years’ service.  
+List the names of all employees with a new column to indicate those people who qualify 
+for this benefit. If a person has 5 years’ service or more output ‘5 x’ in the new column, 
+and if they have 10 years’ service or more output ‘10 x’ in the new column otherwise leave it blank.
+*/
+
+
+SELECT forename
+	,start_date
+	,FLOOR(DATEDIFF(DAY,start_date,GETDATE())/365.25) as LoS
+	,CASE
+		WHEN FLOOR(DATEDIFF(DAY,start_date,GETDATE())/365.25) >= 10 THEN '10x'
+		WHEN FLOOR(DATEDIFF(DAY,start_date,GETDATE())/365.25) >= 5 THEN '5x'
+		END as los_benefit
+FROM sql_hr.dbo.employees e

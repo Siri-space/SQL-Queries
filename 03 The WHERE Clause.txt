@@ -1,0 +1,126 @@
+SELECT e.person_id
+	,e.title
+	,e.forename
+	,e.surname
+	,e.start_date
+	,e.gender
+	,sec.passwd
+FROM employees e
+INNER JOIN emp_security sec ON sec.person_id = e.person_id
+
+	--STRINGS
+	----------------------
+	--passwd = 'DixieDean999'				--	=, exact match
+	--passwd LIKE 'DixieDean999'			--	LIKE, but with no wildcard, exact match
+	--passwd LIKE '%password%'				--	a percent wildcard means any number of any character
+	--passwd LIKE 'password%'				--	a % at the end, means MUST start with ...'
+	--passwd LIKE 'p%'						--	must start with a p or P
+	--passwd NOT LIKE 'password%'			--	Apply NOT, to reverse the logic
+	--passwd LIKE '%passd%'					--	a wider searh term
+	--passwd LIKE '%[0-9]%'					--	use square brackets to hold a range or list
+	--passwd NOT LIKE '%[0-9]%'				--	0-9 is a range
+	--passwd LIKE '%[A-Z]%'					--	A-Z is a range
+	--passwd LIKE '%[A-C]%'					--	A-C is a range
+	--passwd LIKE '%[!"£$^&*()]%'			--	this is a list
+	--passwd LIKE '_[A-C]%'					--	Underscore means ONE of any character
+	--passwd LIKE '_[a]%'					--	here we ask for values where the second character is 'a'
+	--passwd LIKE '[^A-Z]%'					--	the carat signifies NOT within a list or range
+	--passwd LIKE '%£%%' escape '£'			--	escape character is used for searching for special characters such as '%'4
+/*
+			Tells SQL Server to treat the following % as a literal string instead of a wildcard.
+			Escape char can be ANY character
+*/
+
+	--passwd <> 'password1'								--		<> not equals to			
+	--passwd != 'password1'								--		not equals to
+	--passwd IN ('londongirl','elephant555')			--		IN list
+	--passwd = 'londongirl' OR passwd = 'elephant555'	--		IN is the same as a OR b OR c etc.
+	-------------------------------
+
+	--NUMBERS
+	------------------------
+	--e.person_id = 10001							--	equals, exact match
+	--e.person_id > 10001							--	> greater than
+	--e.person_id < 10001							--	< less than
+	--e.person_id >= 10001							--	>= greater than or equals to
+	--e.person_id <= 10010							--	<= less than or equals to
+	--e.person_id >= 10010 AND e.person_id <= 10020	--	USING the AND operator
+	--e.person_id BETWEEN 10010 AND 10020			--	BETWEEN is inclusive
+	--e.person_id NOT BETWEEN 10010 AND 10020		--	NOT between
+	--e.person_id IN (10033,10045,10046)			--	IN list, comma separated
+
+	----------------------------------
+
+	--DATES
+	---------------
+	--e.start_date >= GETDATE()								--	greater than now (future)
+	--e.start_date <= GETDATE()								--	less than now (past)
+	--e.start_date BETWEEN '2022-04-01' AND '2022-08-01'	--	between specific dates
+															--	we'll do more on dates in the next lesson
+	------------------------------------
+
+	--COMPLEX WHERE CONDITIONS WITH BRACKETS
+	------------------------------------
+	/*
+	(title = 'Mr' AND gender = 'F')
+	OR
+	(title IN ('Miss','Mrs','Ms') AND gender = 'M')
+	*/
+
+
+	-----------------------------------
+	--Challenge together
+	--Identify any valid emails in the passwords column
+
+	--passwd LIKE '_%@_%._%'
+	--AND passwd NOT LIKE '% %'
+
+
+
+
+--0103 Challenge
+--1. Show me a list of rows from the emp_security table where the person_id is in the range 10020 to 10030 inclusive
+SELECT e.person_id
+	,e.title
+	,e.forename
+	,e.surname
+	,e.start_date
+	,e.gender
+	,sec.passwd
+FROM employees e
+INNER JOIN emp_security sec ON sec.person_id = e.person_id
+--potentially three options here
+--WHERE e.person_id >= 10020 AND e.person_id <= 10030
+--WHERE e.person_id IN (10020,10021,10022,10023,10024,10025,10026,10027,10028,10029,10030)
+WHERE e.person_id BETWEEN 10020 AND 10030
+
+--IF the remit was to find all numbers in that range EXCEPT 10025, then...
+--WHERE e.person_id BETWEEN 10020 AND 10030 AND e.person_id <> 10025
+
+
+--2. Display all rows from the employees table where the employee’s first name is the same as their surname
+SELECT *
+FROM employees 
+WHERE forename = surname
+
+
+--3. Display all rows from the security table where the first letter of the password is a B, the third letter is an R and the password does NOT contain any numbers.
+
+SELECT *
+FROM emp_security
+WHERE passwd LIKE 'b_r%'		--case sensitivity not important in THIS database
+and passwd NOT LIKE '%[0-9]%'
+
+
+--4. Display all rows from the security table where the password contains any reference to the actor Jack Black, but being careful NOT to include anyone else in the result set.
+
+SELECT *
+FROM emp_security
+WHERE passwd LIKE '%jack%'			--	must contain JACK
+AND passwd NOT LIKE '%jack[A-Z]%'	--	JACK must not be immediately followed by any other letter
+AND passwd NOT LIKE '%[A-Z]jack%'	--  JACK must not be immediately preceeded by any other letter
+AND passwd LIKE '%black%'			--	must contain BLACK
+AND passwd NOT LIKE '%black[A-Z]%'	--	BLACK must not be immediately followed by any other letter
+AND passwd NOT LIKE '%[A-Z]black%'	--	BLACK must not be immediately preceeded by any other letter
+
+

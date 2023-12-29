@@ -1,0 +1,141 @@
+use sql_training
+
+DROP TABLE #emp_details
+
+CREATE TABLE #emp_details (
+	--field name, data type, null/not null, constraints
+	id INT IDENTITY(1,1) NOT NULL,
+	emp_name VARCHAR(20) NOT NULL UNIQUE,
+	town VARCHAR(20) NULL,
+	birth_date DATE NOT NULL,
+	age INT NULL,
+	date_time_added DATETIME NOT NULL DEFAULT(GETDATE())
+)
+
+ALTER TABLE #emp_details ADD date_time_added DATETIME NOT NULL DEFAULT(GETDATE())
+
+
+SELECT * FROM #emp_details
+-----------------------------------------------------------
+--INSERT 3 methods
+
+--1
+INSERT INTO #emp_details (emp_name,birth_date)
+VALUES
+ ('Jimbob Hooliman','1994-05-08')    --to add a single row of values
+
+INSERT INTO #emp_details (emp_name,birth_date)
+VALUES
+ ('Brenda Grimpole','1980-05-07')
+,('Orville Skywalker','1997-05-19')	-- to add multiple rows of values
+
+--2
+INSERT INTO #emp_details (emp_name,birth_date)
+SELECT 'Norbert Fnib','2000-12-28'
+UNION
+SELECT 'Lelya Britstone','1976-12-18'
+
+--3
+INSERT INTO #emp_details (emp_name,birth_date)
+SELECT TOP 5 forename + ' ' + surname,birth_date		--use SELECT to drag some data from another database table
+FROM sql_hr.dbo.employees
+WHERE surname LIKE 'B%'
+
+SELECT * FROM #emp_details
+----------------------------------------------------------
+--UPDATE - 3 methods
+
+--1
+UPDATE #emp_details SET town = 'Manchester'	--will update all rows for that column
+
+--2
+UPDATE #emp_details 
+SET town = 'Liverpool'
+WHERE id IN (1,2,4,6,9)		--or add a filter
+
+--3
+ALTER TABLE #emp_details ADD job_title VARCHAR(30)	--add a new column!
+
+UPDATE emp		--'emp' is the alias for the table we're updating
+SET emp.job_title = j.job_title
+FROM #emp_details emp
+INNER JOIN sql_hr.dbo.employees e ON e.forename + ' ' + e.surname = emp.emp_name
+INNER JOIN sql_hr.dbo.job_history jh ON jh.person_id = e.person_id
+INNER JOIN sql_hr.dbo.jobs j ON j.job_id = jh.job_id
+WHERE jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+
+
+UPDATE #emp_details
+SET job_title = 'car valeter'
+WHERE id < 3
+
+UPDATE #emp_details
+SET job_title = 'rocket launcher'
+WHERE job_title IS NULL		--will fill in the gaps
+
+UPDATE #emp_details SET age = DATEDIFF(DAY,birth_date,GETDATE())/365.25
+
+SELECT * FROM #emp_details
+
+-----------------------------------------------------------------
+--DELETE
+
+TRUNCATE TABLE #emp_details		--empties the table and resets the identity column
+
+DELETE FROM #emp_details		--empties the table but the identity column is maintained from the previous insert
+
+DELETE FROM #emp_details
+WHERE town = 'Liverpool'
+
+SELECT * FROM #emp_details
+
+-----------------------------------------------------------------
+-----------------------------------------------------------------
+--CHALLENGE
+
+/*Build a table of the members of your family or friends or pets (you can / should make up or change the details for data protection)
+
+Id (auto increment)
+person name / pet name
+date of birth
+age
+height
+hair colour
+
+INSERT the data manually
+UPDATE: make everyone a year older
+DELETE all records where the ID is an odd number
+*/
+
+CREATE TABLE #pets (
+	pet_id INT IDENTITY(1,1) NOT NULL,
+	pet_name VARCHAR(20) NOT NULL,
+	pet_type VARCHAR(20) NOT NULL,
+	birth_date DATE NOT NULL,
+	age INT NULL DEFAULT(0),
+	height_cm INT NULL,
+	fur_colour VARCHAR(20) NULL,
+	date_time_added DATETIME NOT NULL DEFAULT(GETDATE())
+	)
+
+INSERT INTO #pets (pet_name,pet_type,birth_date,height_cm,fur_colour)
+VALUES
+ ('Reggie','Dog','2017-04-20',45,'Brown')
+,('Charlie','Cat','2016-03-15',25,'Silver & Grey')
+,('Teddy','Cat','2020-02-26',20,'Dark Grey')
+,('Ben','Rabbit','2015-04-01',15,'Light Brown')
+,('Jerry','Rabbit','2015-04-01',15,'Light Brown')
+
+SELECT * FROM #pets
+
+UPDATE #pets SET AGE = DATEDIFF(DAY,birth_date,GETDATE())/365.25
+
+UPDATE #pets SET birth_date = DATEADD(YEAR,-1,birth_date)
+
+
+DELETE
+FROM #pets
+WHERE pet_id % 2 = 1
+
+SELECT * FROM #pets

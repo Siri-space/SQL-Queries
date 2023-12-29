@@ -1,0 +1,1850 @@
+--	ONE SCRIPT TO RULE THEM ALL
+
+--	This checks if a database called sql_sales already exists, and if not creates it
+IF NOT EXISTS (SELECT name FROM master.dbo.sysdatabases WHERE name = 'sql_sales')
+BEGIN CREATE DATABASE sql_sales END
+GO
+
+--connect to new DB
+USE sql_sales
+GO
+
+
+/*
+--to look for FKs which exist
+SELECT 'IF EXISTS(SELECT name FROM sys.objects WHERE name = ' + '''' + fk.name + '''' + ') BEGIN ALTER TABLE ' + tab.name + ' DROP CONSTRAINT ' + fk.name + ' END'
+FROM sys.objects fk
+INNER JOIN sys.objects tab ON tab.object_id = fk.parent_object_id
+WHERE fk.type_desc  = 'FOREIGN_KEY_CONSTRAINT'
+*/
+
+
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_product_group_id') BEGIN ALTER TABLE products DROP CONSTRAINT fk_product_group_id END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_supplier_id') BEGIN ALTER TABLE products DROP CONSTRAINT fk_supplier_id END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_pph_products') BEGIN ALTER TABLE product_price_history DROP CONSTRAINT fk_pph_products END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_supp_pph_products') BEGIN ALTER TABLE supplier_product_price_history DROP CONSTRAINT fk_supp_pph_products END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_custaddress_countries') BEGIN ALTER TABLE customer_addresses DROP CONSTRAINT fk_custaddress_countries END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_suppliers_countries') BEGIN ALTER TABLE suppliers DROP CONSTRAINT fk_suppliers_countries END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_users_auth_level') BEGIN ALTER TABLE users DROP CONSTRAINT fk_users_auth_level END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_deliv_products') BEGIN ALTER TABLE deliveries DROP CONSTRAINT fk_deliv_products END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_deliv_users') BEGIN ALTER TABLE deliveries DROP CONSTRAINT fk_deliv_users END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_deliv_suppliers') BEGIN ALTER TABLE deliveries DROP CONSTRAINT fk_deliv_suppliers END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_ord_products') BEGIN ALTER TABLE orders DROP CONSTRAINT fk_ord_products END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_ord_customers') BEGIN ALTER TABLE orders DROP CONSTRAINT fk_ord_customers END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_ord_users') BEGIN ALTER TABLE orders DROP CONSTRAINT fk_ord_users END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_ord_payment_method') BEGIN ALTER TABLE orders DROP CONSTRAINT fk_ord_payment_method END
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'fk_cust_pay_details') BEGIN ALTER TABLE pay_details DROP CONSTRAINT fk_cust_pay_details END
+GO
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+--		DROP AND REBUILD TABLES
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'product_groups') DROP TABLE product_groups
+CREATE TABLE product_groups (
+	product_group_id INT IDENTITY(1,1) PRIMARY KEY,
+	product_group_desc VARCHAR(30) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'products') DROP TABLE products
+CREATE TABLE products (
+	product_id INT IDENTITY(1,1) PRIMARY KEY,
+	product_name VARCHAR(50) NOT NULL,
+	product_desc VARCHAR(MAX) NULL,
+	product_group_id INT NOT NULL,
+	supplier_id INT NOT NULL,
+	current_retail_price NUMERIC(7,2) NOT NULL,
+	current_supplier_price NUMERIC(7,2) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'suppliers') DROP TABLE suppliers
+CREATE TABLE suppliers (
+	supplier_id INT IDENTITY(1,1) PRIMARY KEY,
+	supplier_name VARCHAR(50) NOT NULL,
+	address_1 VARCHAR(50) NULL,
+	address_2 VARCHAR(50) NULL,
+	address_3 VARCHAR(50) NULL,
+	address_4 VARCHAR(50) NULL,
+	postcode VARCHAR(12)  NULL,
+	country_code CHAR(2) NULL,
+	contact_name VARCHAR(50) NULL,
+	contact_number VARCHAR(15) NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'product_price_history') DROP TABLE product_price_history
+CREATE TABLE product_price_history (
+	product_id INT NOT NULL,
+	start_date DATE NOT NULL,
+	end_date DATE NULL,
+	price NUMERIC(7,2) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'pay_details') DROP TABLE pay_details
+CREATE TABLE pay_details (
+	customer_id INT NOT NULL PRIMARY KEY,
+	long_card_number CHAR(16) NOT NULL,
+	expiry_date CHAR(5)  NOT NULL,
+	ccv CHAR(3) NOT NULL,
+	name_on_card VARCHAR(30) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'countries') DROP TABLE countries
+CREATE TABLE countries (
+	country_code CHAR(2) NOT NULL PRIMARY KEY,
+	country_name VARCHAR(30) NOT NULL,
+	currency_code CHAR(3) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'customers') DROP TABLE customers
+CREATE TABLE customers (
+	customer_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	title VARCHAR(10) NOT NULL,
+	forename VARCHAR(30) NOT NULL,
+	surname VARCHAR(30) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'customer_addresses') DROP TABLE customer_addresses
+CREATE TABLE customer_addresses (
+	customer_address_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	customer_id INT NOT NULL,
+	is_default_address BIT NOT NULL DEFAULT(1),
+	address_1 VARCHAR(50) NOT NULL,
+	address_2 VARCHAR(50) NULL,
+	address_3 VARCHAR(50) NULL,
+	address_4 VARCHAR(50) NULL,
+	postcode VARCHAR(15) NOT NULL,
+	country_code CHAR(2) NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'users') DROP TABLE users
+CREATE TABLE users (
+	user_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	forename VARCHAR(30) NULL,
+	surname VARCHAR(30) NULL,
+	system_username VARCHAR(15) NULL,
+	auth_level_id INT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'auth_levels') DROP TABLE auth_levels
+CREATE TABLE auth_levels (
+	auth_level_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	auth_level VARCHAR(30) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'payment_methods') DROP TABLE payment_methods
+CREATE TABLE payment_methods (
+	payment_method_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	payment_method_desc VARCHAR(30) NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'deliveries') DROP TABLE deliveries
+CREATE TABLE deliveries (
+	delivery_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	product_id INT NOT NULL,
+	supplier_id INT NOT NULL,
+	user_id INT NOT NULL,
+	delivery_date DATETIME NOT NULL DEFAULT(GETDATE()),
+	total_qty_delivered INT NOT NULL,
+	usable_quantity INT NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'orders') DROP TABLE orders
+CREATE TABLE orders (
+	order_id INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+	order_date DATETIME NOT NULL DEFAULT(GETDATE()),
+	product_id INT NOT NULL,
+	customer_id INT NOT NULL,
+	user_id INT NOT NULL,
+	quantity INT NOT NULL,
+	payment_method_id INT NOT NULL
+	)
+GO
+
+IF EXISTS(SELECT name FROM sys.objects WHERE name = 'supplier_product_price_history') DROP TABLE supplier_product_price_history
+CREATE TABLE supplier_product_price_history (
+	product_id INT NOT NULL,
+	start_date DATE NOT NULL,
+	end_date DATE NULL,
+	price NUMERIC(7,2) NOT NULL
+	)
+GO
+
+
+---------------------------------------------------------------------------------------------------------------
+--		COMPOSITE PRIMARY KEYS
+
+ALTER TABLE product_price_history
+ADD CONSTRAINT pk_product_start_date
+PRIMARY KEY (product_id, start_date)
+GO
+
+ALTER TABLE supplier_product_price_history
+ADD CONSTRAINT pk_supplier_product_start_date
+PRIMARY KEY (product_id, start_date)
+GO
+
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+
+
+truncate table product_groups
+INSERT INTO product_groups (product_group_desc)
+		SELECT 'Accessories'
+UNION	SELECT 'Acoustic Guitars'
+UNION	SELECT 'Bass Guitars'
+UNION	SELECT 'Electric Guitars'
+UNION	SELECT 'Ukuleles and mini guitars'
+GO
+
+
+--	SELECT * FROM product_groups
+----------------------------------------------------------------------------------
+truncate table suppliers
+INSERT INTO suppliers (supplier_name,address_1,address_2,address_3,address_4,postcode,contact_name,contact_number)
+VALUES
+ ('Yamaha','Yamaha Music Europe GmbH-Branch UK','Sherbourne Drive','Tilbrook','Milton Keynes','MK7 8BL','Stuart Slater','0203 027 5116')
+,('Fender','Fender Musical Instruments Corp.','1575 N Gower Street','Suite 170','Los Angeles. CA','90028','Helen Bouchamp','0333 200 8765')
+,('Gretsch Guitars','17600 N. Perimeter Drive','Suite 100','Scottsdale','AZ','85255','Murray Spinner','1-800-856-9801')
+,('Lanakai','Lanakai Ukuleles','12020 Volunteer Blvd','Mt. Juliet','TN','37122','Doug Esteban','1-800-446-6010')
+,('Rotosound / Gaucho','Unit 3B','Morewood Close','Sevenoaks','Kent','TN13 2HU','Marlene Bain','0207 212 5588')
+,('Stagg','EMD Music S.A.','Boulevard General Wahis','16A - 1030 Scharbeek','Belgium','1030','Francois Guillemont','+32 71405 21204')
+,('Ibanez','Hoshino Europe B.V','Constructieweg 7','3641 SB Mijdrecht','The Netherlands','3641','David Humperdinck','+31 0297 567788')
+,('Rickenbacker','3895 South Main Street','Santa Ana','California','USA','92707','Martin Holland','714 545 5574')
+GO
+
+--SELECT * FROM suppliers
+
+----------------------------------------------------------------------------------
+truncate table products
+INSERT INTO products(product_name,product_desc,product_group_id,supplier_id,current_retail_price,current_supplier_price)
+VALUES 
+ ('Yamaha APX-5A Acoustic Guitar','With cutaway & electro internals for amplification and built in tuner',2,1,159,98)
+,('Squier Telecaster Electric Guitar','Single humbucker pickups',4,2,259.49,176)
+,('Gretsch G2622 Electric Guitar','Hollow body. Red sunburst',4,3,468.50,350)
+,('Ibanez SRX 360','Black. Active pickups',3,7,379,320)
+,('Gretsch G9126 ACE Guitar-Lele','Electro-acoustic with built in tuner',5,3,255,175)
+,('Lanakai Soprano Ukulele','With nylon strings',5,4,75,30)
+,('Ibanez picks','Pack of six. 0.45mm thickness',1,7,2.99,0.78)
+,('Guitar Strap','White hemp. Adjustable',1,5,4.69,2.10)
+,('Guitar Strap for ukulele','Neck fitting',1,5,3.44,1.00)
+,('Guitar Stand','Single acoustic or electric guitar',1,6,24,10)
+,('Guitar Rack','Holds three guitars',1,6,35.49,13.45)
+,('Guitar Rack','Holds five guitars',1,6,46.59,21.53)
+,('Set of strings - 9 gague','Sizes: 0.09, 0.11, 0.16, 0.24, 0.32, 0.42',1,5,5.99,1.02)
+,('Set of strings - 10 gague','Sizes: 0.10, 0.13, 0.17, 0.26, 0.36, 0.46',1,5,6.99,1.78)
+GO
+
+EXEC usp_add_new_product 'Vox Pathfinder 10W Guitar Amp','Electric Guitar Combo Amplifier',76.24,45,'Amplifiers','Vox / Korg UK Limited'
+EXEC usp_add_new_product 'Fender Rumble 50W Bass Guitar Amp','Bass Guitar Combo Amplifier',199,102,'Amplifiers','Fender'
+EXEC usp_add_new_product 'Kork Microkorg','Mini synthesiser',279,197,'Keyboards & Synths','Vox / Korg UK Limited'
+EXEC usp_add_new_product 'History of Modern Music','A complete history of music from baroque to pop',13.99,6.48,'Books','Music Books for All'
+EXEC usp_add_new_product 'How to Play Queen Classics','From Flash to Bo-Rap. All the hits',11.49,4.75,'Books','Music Books for All'
+EXEC usp_add_new_product 'Build Your Own Guitar','Easy to folow construction guide',22.49,7.80,'Books','Music Books for All'
+EXEC usp_add_new_product 'Piano Made Easy','Easy steps for the beginner',8.99,3.00,'Books','Music Books for All'
+GO
+
+
+--	SELECT * FROM products
+--	SELECT * FROM product_groups
+--	SELECT * FROM suppliers
+
+/*
+SELECT p.product_id,p.product_name,pg.product_group_desc,s.supplier_name
+FROM products p
+inner join product_groups pg on pg.product_group_id = p.product_group_id
+inner join suppliers s on s.supplier_id = p.supplier_id
+*/
+
+----------------------------------------------------------------------------------
+truncate table payment_methods
+INSERT INTO payment_methods (payment_method_desc)
+VALUES 
+ ('Cash'),('Debit Card'),('Credit Card'),('Paypal'),('Apple Pay'),('Samsung Pay'),('Voucher')
+ GO
+
+--	SELECT * FROM payment_methods
+
+----------------------------------------------------------------------------------
+TRUNCATE TABLE auth_levels
+INSERT INTO auth_levels (auth_level) VALUES ('superuser')
+INSERT INTO auth_levels (auth_level) VALUES ('admin')
+INSERT INTO auth_levels (auth_level) VALUES ('user')
+GO
+
+--	SELECT * FROM auth_levels
+----------------------------------------------------------------------------------
+truncate table users
+INSERT INTO users (forename,surname,system_username,auth_level_id)
+		SELECT 'Michael','Smith','Mike',2
+UNION	SELECT 'Joanne','Regan','Jo',2
+UNION	SELECT 'Joseph','Sanderson','Joe',1
+UNION	SELECT 'Sally','Bollore',NULL,2
+UNION	SELECT 'Thomas','Keneally','Tom',2
+UNION	SELECT 'Peter','Friend',NULL,2
+UNION	SELECT 'Jenny','Stephens','Jen',1
+UNION	SELECT 'Rachel','Arbuckle',NULL,2
+UNION	SELECT 'Stephen','Reeve','Steve',2
+UNION	SELECT 'Lee','Tomlinson',NULL,2
+UNION	SELECT 'William','Turnbull','Will',2
+UNION	SELECT 'Oscar','Milevic',NULL,2
+UNION	SELECT NULL,NULL,'Internet',3
+GO
+
+--	SELECT * FROM users
+----------------------------------------------------------------------------------
+truncate table countries
+INSERT INTO countries (country_code,country_name,currency_code)
+		SELECT 'UK','United Kingdom','GBP'
+UNION	SELECT 'US','United States','USD'
+UNION	SELECT 'FR','France','EUR'
+UNION	SELECT 'DE','Germany','EUR'
+UNION	SELECT 'BE','Belgium','EUR'
+UNION	SELECT 'IR','Ireland','EUR'
+UNION	SELECT 'SW','Sweden','EUR'
+UNION	SELECT 'DM','Denmark','EUR'
+UNION	SELECT 'IT','Italy','EUR'
+UNION	SELECT 'CA','Canada','CAD'
+UNION	SELECT 'ES','Spain','EUR'
+UNION	SELECT 'ND','Netherlands','EUR'
+UNION	SELECT 'NI','Northern Ireland','GBP'
+GO
+
+--	SELECT * FROM countries
+
+-----------------------------------------------------------------------------------
+
+--	select * from products
+--	select * from product_price_history
+truncate table product_price_history
+insert into product_price_history (product_id,start_date,end_date,price)
+		select 1 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-390,GETDATE()) as end_date, 140 as price
+UNION	select 1 as product_id, DATEADD(DAY,-389,GETDATE()) as start_date,DATEADD(DAY,-200,GETDATE()) as end_date, 150 as price
+UNION	select 3 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-130,GETDATE()) as end_date, 419.99 as price
+UNION	select 6 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-210,GETDATE()) as end_date, 50 as price
+UNION	select 6 as product_id, DATEADD(DAY,-209,GETDATE()) as start_date,DATEADD(DAY,-116,GETDATE()) as end_date, 60 as price
+UNION	select 6 as product_id, DATEADD(DAY,-115,GETDATE()) as start_date,DATEADD(DAY,-43,GETDATE()) as end_date, 70 as price
+GO
+
+truncate table supplier_product_price_history
+insert into supplier_product_price_history (product_id,start_date,end_date,price)
+		select 1 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-390,GETDATE()) as end_date, 80 as price
+UNION	select 1 as product_id, DATEADD(DAY,-389,GETDATE()) as start_date,DATEADD(DAY,-200,GETDATE()) as end_date, 90 as price
+UNION	select 3 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-130,GETDATE()) as end_date, 300 as price
+UNION	select 6 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-210,GETDATE()) as end_date, 20 as price
+UNION	select 6 as product_id, DATEADD(DAY,-209,GETDATE()) as start_date,DATEADD(DAY,-116,GETDATE()) as end_date, 25 as price
+UNION	select 8 as product_id, '1900-01-01' as start_date,DATEADD(DAY,-60,GETDATE()) as end_date, 1.80 as price
+GO
+
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+
+TRUNCATE TABLE deliveries
+GO
+
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (1,1,2,DATEADD(DAY,-465,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2,2,2,DATEADD(DAY,-465,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (3,3,2,DATEADD(DAY,-465,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,2,DATEADD(DAY,-465,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (5,3,2,DATEADD(DAY,-465,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (6,4,2,DATEADD(DAY,-465,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (7,7,2,DATEADD(DAY,-465,GETDATE()),50,50)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (8,5,2,DATEADD(DAY,-465,GETDATE()),50,50)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (9,5,2,DATEADD(DAY,-465,GETDATE()),50,50)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (10,6,2,DATEADD(DAY,-465,GETDATE()),50,50)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (11,6,2,DATEADD(DAY,-465,GETDATE()),50,50)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (12,6,2,DATEADD(DAY,-465,GETDATE()),50,50)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (13,5,2,DATEADD(DAY,-465,GETDATE()),100,100)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (14,5,2,DATEADD(DAY,-465,GETDATE()),100,100)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2,2,4,DATEADD(DAY,-410,GETDATE()),24,23)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (3,3,4,DATEADD(DAY,-385,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (1,1,4,DATEADD(DAY,-367,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,2,DATEADD(DAY,-367,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (5,3,2,DATEADD(DAY,-367,GETDATE()),10,9)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2,2,4,DATEADD(DAY,-312,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (6,4,4,DATEADD(DAY,-300,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (5,3,4,DATEADD(DAY,-270,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (1,1,3,DATEADD(DAY,-240,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,3,DATEADD(DAY,-240,GETDATE()),10,9)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (15,9,4,DATEADD(DAY,-238,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (16,2,4,DATEADD(DAY,-238,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (17,9,4,DATEADD(DAY,-238,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (15,9,4,DATEADD(DAY,-231,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (16,2,4,DATEADD(DAY,-231,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (17,9,4,DATEADD(DAY,-231,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2,2,2,DATEADD(DAY,-211,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (3,3,2,DATEADD(DAY,-211,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (15,9,4,DATEADD(DAY,-210,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,3,DATEADD(DAY,-195,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (5,3,4,DATEADD(DAY,-176,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,3,DATEADD(DAY,-150,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (1,1,2,DATEADD(DAY,-120,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (7,7,2,DATEADD(DAY,-120,GETDATE()),30,30)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (8,5,2,DATEADD(DAY,-120,GETDATE()),30,28)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (5,3,2,DATEADD(DAY,-112,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (6,4,2,DATEADD(DAY,-112,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (10,6,2,DATEADD(DAY,-104,GETDATE()),25,23)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (15,9,4,DATEADD(DAY,-104,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (17,9,4,DATEADD(DAY,-104,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2,2,3,DATEADD(DAY,-78,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,3,DATEADD(DAY,-78,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (10,6,3,DATEADD(DAY,-78,GETDATE()),20,19)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (12,6,3,DATEADD(DAY,-78,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (16,2,3,DATEADD(DAY,-78,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (17,9,3,DATEADD(DAY,-78,GETDATE()),15,14)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (18,10,2,DATEADD(DAY,-75,GETDATE()),30,30)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (19,10,4,DATEADD(DAY,-75,GETDATE()),30,30)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (20,10,2,DATEADD(DAY,-75,GETDATE()),30,30)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (21,10,4,DATEADD(DAY,-75,GETDATE()),30,30)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (20,10,2,DATEADD(DAY,-59,GETDATE()),30,30)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (8 ,5,12,DATEADD(DAY,-59,GETDATE()),15,15)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2 ,2,6 ,DATEADD(DAY,-37,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (4,7,4,DATEADD(DAY,-27,GETDATE()),10,10)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (8,5,4,DATEADD(DAY,-27,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (9,5,4,DATEADD(DAY,-27,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (1,1,2,DATEADD(DAY,-18,GETDATE()),20,20)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (5,3,2,DATEADD(DAY,-18,GETDATE()),15,14)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (10,6,2,DATEADD(DAY,-15,GETDATE()),22,22)
+INSERT INTO deliveries (product_id,supplier_id,user_id,delivery_date,total_qty_delivered,usable_quantity) VALUES (2 ,2,4,DATEADD(DAY,-4,GETDATE()),20,20)
+GO
+
+--select * from deliveries
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+TRUNCATE TABLE Orders
+GO
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-460,GETDATE()),3,1,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-460,GETDATE()),11,2,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-460,GETDATE()),6,2,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-459,GETDATE()),5,3,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-459,GETDATE()),2,3,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-458,GETDATE()),3,4,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-457,GETDATE()),4,5,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-455,GETDATE()),3,6,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-452,GETDATE()),1,7,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-452,GETDATE()),5,7,3,1,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-451,GETDATE()),10,8,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-450,GETDATE()),6,9,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-450,GETDATE()),4,9,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-450,GETDATE()),1,10,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-449,GETDATE()),2,11,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-449,GETDATE()),3,12,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-448,GETDATE()),4,13,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-447,GETDATE()),12,14,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-446,GETDATE()),14,15,3,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-445,GETDATE()),13,2,4,2,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-444,GETDATE()),2,16,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-443,GETDATE()),7,17,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-442,GETDATE()),10,18,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-442,GETDATE()),11,19,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-441,GETDATE()),2,20,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-441,GETDATE()),3,21,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-440,GETDATE()),4,22,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-440,GETDATE()),2,23,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-439,GETDATE()),2,24,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-438,GETDATE()),1,25,2,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-438,GETDATE()),14,25,2,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-437,GETDATE()),1,26,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-437,GETDATE()),3,27,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-436,GETDATE()),2,5,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-435,GETDATE()),7,28,5,3,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-434,GETDATE()),9,11,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-434,GETDATE()),2,11,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-433,GETDATE()),13,29,5,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-432,GETDATE()),5,30,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-430,GETDATE()),14,31,4,3,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-430,GETDATE()),2,31,3,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-429,GETDATE()),2,32,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-428,GETDATE()),6,12,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-428,GETDATE()),2,33,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-427,GETDATE()),12,34,1,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-426,GETDATE()),2,35,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-426,GETDATE()),14,35,2,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-425,GETDATE()),2,2,3,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-423,GETDATE()),6,18,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-422,GETDATE()),3,4,2,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-420,GETDATE()),2,36,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-419,GETDATE()),5,37,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-419,GETDATE()),3,14,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-418,GETDATE()),2,38,6,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-416,GETDATE()),1,39,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-415,GETDATE()),2,20,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-414,GETDATE()),5,40,3,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-414,GETDATE()),10,40,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-412,GETDATE()),14,12,5,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-410,GETDATE()),5,41,5,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-410,GETDATE()),2,42,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-409,GETDATE()),3,43,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-408,GETDATE()),2,21,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-408,GETDATE()),1,1,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-407,GETDATE()),4,44,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-406,GETDATE()),5,45,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-405,GETDATE()),7,12,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-403,GETDATE()),8,46,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-401,GETDATE()),1,47,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-401,GETDATE()),8,47,6,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-401,GETDATE()),14,47,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-399,GETDATE()),1,8,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-399,GETDATE()),2,48,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-398,GETDATE()),3,18,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-398,GETDATE()),2,49,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-397,GETDATE()),5,26,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-395,GETDATE()),8,33,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-395,GETDATE()),4,50,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-395,GETDATE()),10,51,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-395,GETDATE()),14,52,3,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-395,GETDATE()),13,52,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-393,GETDATE()),2,53,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-392,GETDATE()),3,12,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-391,GETDATE()),4,26,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-388,GETDATE()),2,54,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-387,GETDATE()),1,1,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-387,GETDATE()),5,34,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-386,GETDATE()),10,55,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-386,GETDATE()),2,8,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-385,GETDATE()),14,16,6,5,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-385,GETDATE()),2,16,7,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-384,GETDATE()),3,56,1,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-384,GETDATE()),2,57,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-383,GETDATE()),1,58,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-380,GETDATE()),10,23,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-380,GETDATE()),12,14,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-379,GETDATE()),8,3,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-378,GETDATE()),9,59,4,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-377,GETDATE()),7,44,1,10,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-376,GETDATE()),4,60,5,2,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-376,GETDATE()),1,45,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-374,GETDATE()),2,61,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-373,GETDATE()),3,23,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-372,GETDATE()),4,8,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-371,GETDATE()),1,62,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-370,GETDATE()),5,12,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-370,GETDATE()),6,24,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-369,GETDATE()),8,10,7,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-369,GETDATE()),4,63,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-367,GETDATE()),10,63,3,1,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-360,GETDATE()),11,55,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-359,GETDATE()),5,64,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-358,GETDATE()),14,28,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-357,GETDATE()),8,15,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-357,GETDATE()),6,65,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-357,GETDATE()),9,65,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-356,GETDATE()),6,23,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-355,GETDATE()),9,31,1,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-352,GETDATE()),5,66,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-351,GETDATE()),2,2,5,1,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-350,GETDATE()),2,18,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-349,GETDATE()),2,67,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-348,GETDATE()),1,23,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-347,GETDATE()),3,47,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-346,GETDATE()),5,46,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-345,GETDATE()),5,2,2,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-345,GETDATE()),6,8,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-345,GETDATE()),10,18,7,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-342,GETDATE()),12,28,5,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-341,GETDATE()),12,40,1,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-340,GETDATE()),14,68,7,3,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-339,GETDATE()),1,69,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-338,GETDATE()),3,12,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-336,GETDATE()),2,40,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-335,GETDATE()),4,48,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-334,GETDATE()),5,55,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-330,GETDATE()),7,70,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-330,GETDATE()),8,66,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-330,GETDATE()),9,58,7,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-330,GETDATE()),14,1,7,1,6)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-328,GETDATE()),6,3,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-327,GETDATE()),2,45,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-325,GETDATE()),4,71,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-323,GETDATE()),8,44,7,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-320,GETDATE()),10,58,4,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-318,GETDATE()),14,70,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-316,GETDATE()),3,66,5,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-315,GETDATE()),7,23,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-314,GETDATE()),1,8,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-314,GETDATE()),2,19,3,2,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-313,GETDATE()),1,22,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-312,GETDATE()),2,28,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-312,GETDATE()),6,28,3,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-310,GETDATE()),4,40,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-308,GETDATE()),5,35,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-306,GETDATE()),10,72,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-305,GETDATE()),9,61,4,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-303,GETDATE()),9,45,5,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-301,GETDATE()),8,55,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-301,GETDATE()),4,12,3,1,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-299,GETDATE()),1,72,1,3,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-298,GETDATE()),2,45,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-296,GETDATE()),3,33,6,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-295,GETDATE()),2,22,7,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-293,GETDATE()),3,11,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-291,GETDATE()),4,4,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-290,GETDATE()),4,9,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-288,GETDATE()),5,50,4,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-286,GETDATE()),7,52,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-284,GETDATE()),9,70,1,2,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-281,GETDATE()),14,44,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-280,GETDATE()),8,28,3,3,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-280,GETDATE()),10,73,2,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-279,GETDATE()),6,21,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-277,GETDATE()),5,14,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-276,GETDATE()),2,8,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-275,GETDATE()),6,66,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-273,GETDATE()),1,58,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-272,GETDATE()),3,48,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-270,GETDATE()),8,22,6,2,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-267,GETDATE()),14,73,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-266,GETDATE()),12,66,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-264,GETDATE()),10,48,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-262,GETDATE()),8,53,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-260,GETDATE()),6,12,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-259,GETDATE()),4,40,4,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-257,GETDATE()),2,21,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-257,GETDATE()),5,28,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-256,GETDATE()),15,30,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-254,GETDATE()),6,39,6,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-251,GETDATE()),16,74,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-250,GETDATE()),12,21,5,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-249,GETDATE()),10,28,4,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-247,GETDATE()),4,2,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-247,GETDATE()),8,1,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-246,GETDATE()),16,14,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-244,GETDATE()),17,33,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-242,GETDATE()),4,46,6,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-241,GETDATE()),2,18,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-240,GETDATE()),1,49,4,1,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-238,GETDATE()),2,70,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-238,GETDATE()),4,66,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-237,GETDATE()),6,43,4,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-235,GETDATE()),8,51,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-234,GETDATE()),4,50,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-231,GETDATE()),10,32,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-231,GETDATE()),17,28,3,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-230,GETDATE()),17,2,5,3,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-230,GETDATE()),10,9,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-230,GETDATE()),9,66,4,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-228,GETDATE()),1,60,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-227,GETDATE()),15,44,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-227,GETDATE()),16,2,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-226,GETDATE()),17,18,6,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-225,GETDATE()),15,36,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-224,GETDATE()),10,40,6,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-223,GETDATE()),15,71,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-220,GETDATE()),9,60,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-220,GETDATE()),14,33,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-220,GETDATE()),12,22,1,2,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-220,GETDATE()),2,72,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-219,GETDATE()),3,60,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-219,GETDATE()),4,50,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-218,GETDATE()),6,40,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-216,GETDATE()),8,30,4,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-216,GETDATE()),12,20,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-215,GETDATE()),14,15,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-214,GETDATE()),16,18,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-213,GETDATE()),17,66,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-211,GETDATE()),17,1,6,1,6)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-210,GETDATE()),15,11,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-209,GETDATE()),4,22,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-208,GETDATE()),5,33,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-208,GETDATE()),8,45,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-207,GETDATE()),4,46,4,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-206,GETDATE()),10,44,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),15,64,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),15,60,5,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),12,18,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),16,22,6,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),15,7,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),2,44,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-204,GETDATE()),15,37,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-203,GETDATE()),1,28,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-203,GETDATE()),15,18,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-203,GETDATE()),8,41,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-203,GETDATE()),4,43,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-203,GETDATE()),8,55,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-203,GETDATE()),7,66,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-202,GETDATE()),13,72,4,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-202,GETDATE()),1,68,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-201,GETDATE()),15,48,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-201,GETDATE()),8,18,3,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-200,GETDATE()),15,16,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-200,GETDATE()),13,12,2,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-200,GETDATE()),12,11,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-200,GETDATE()),13,43,4,5,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-200,GETDATE()),16,44,6,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-200,GETDATE()),17,65,5,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-199,GETDATE()),12,73,6,2,6)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-199,GETDATE()),13,74,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-198,GETDATE()),10,28,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-198,GETDATE()),9,50,3,3,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-197,GETDATE()),13,51,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-197,GETDATE()),15,43,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-197,GETDATE()),2,15,3,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-196,GETDATE()),8,18,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-196,GETDATE()),7,19,4,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-195,GETDATE()),15,70,1,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-195,GETDATE()),4,20,2,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-194,GETDATE()),5,75,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-194,GETDATE()),4,12,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-193,GETDATE()),3,23,2,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-193,GETDATE()),2,34,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-192,GETDATE()),1,45,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-192,GETDATE()),14,56,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-192,GETDATE()),8,57,6,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-191,GETDATE()),5,43,6,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-191,GETDATE()),2,55,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-190,GETDATE()),17,66,7,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-190,GETDATE()),1,70,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-189,GETDATE()),3,76,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-189,GETDATE()),5,60,6,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-188,GETDATE()),4,50,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-187,GETDATE()),7,40,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-186,GETDATE()),9,15,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-186,GETDATE()),5,16,5,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-186,GETDATE()),13,51,1,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-186,GETDATE()),15,65,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-186,GETDATE()),11,11,5,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-186,GETDATE()),2,55,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-185,GETDATE()),4,43,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-185,GETDATE()),6,42,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-184,GETDATE()),8,15,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-184,GETDATE()),10,48,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-184,GETDATE()),12,76,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-183,GETDATE()),14,45,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-183,GETDATE()),15,31,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-182,GETDATE()),16,54,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-181,GETDATE()),15,20,3,2,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-181,GETDATE()),5,15,2,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-180,GETDATE()),3,26,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-180,GETDATE()),2,42,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-180,GETDATE()),5,43,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-178,GETDATE()),10,76,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-177,GETDATE()),12,22,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-176,GETDATE()),11,15,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-176,GETDATE()),15,13,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-176,GETDATE()),6,11,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-176,GETDATE()),7,9,6,3,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-175,GETDATE()),11,61,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-175,GETDATE()),4,48,1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-175,GETDATE()),5,73,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-174,GETDATE()),13,63,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-174,GETDATE()),14,54,6,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-173,GETDATE()),7,11,7,4,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-172,GETDATE()),8,17,7,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-172,GETDATE()),15,21,7,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-172,GETDATE()),12,38,7,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-171,GETDATE()),13,44,2,1,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-170,GETDATE()),1,70,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-170,GETDATE()),5,64,3,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-169,GETDATE()),4,51,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-169,GETDATE()),8,42,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-169,GETDATE()),9,36,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-168,GETDATE()),10,21,8,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-168,GETDATE()),15,18,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-168,GETDATE()),4,3,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-168,GETDATE()),17,7,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-167,GETDATE()),4,12,7,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-166,GETDATE()),16,74,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-165,GETDATE()),2,66,7,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-165,GETDATE()),4,57,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-164,GETDATE()),9,48,6,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-164,GETDATE()),7,37,4,3,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-163,GETDATE()),6,36,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-163,GETDATE()),12,36,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-162,GETDATE()),13,22,3,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-161,GETDATE()),13,10,2,3,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-160,GETDATE()),10,44,2,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-159,GETDATE()),1,75,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-158,GETDATE()),9,21,3,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-158,GETDATE()),8,36,7,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-158,GETDATE()),7,38,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-157,GETDATE()),6,10,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-156,GETDATE()),2,9,4,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-155,GETDATE()),5,15,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-154,GETDATE()),11,71,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-154,GETDATE()),14,69,6,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-154,GETDATE()),13,48,3,3,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-154,GETDATE()),5,37,8,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-154,GETDATE()),8,24,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-154,GETDATE()),16,38,7,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-153,GETDATE()),4,39,1,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-153,GETDATE()),9,41,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-152,GETDATE()),15,64,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-152,GETDATE()),17,65,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-151,GETDATE()),13,61,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-151,GETDATE()),13,58,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-150,GETDATE()),12,55,7,2,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-149,GETDATE()),11,40,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-148,GETDATE()),16,38,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-148,GETDATE()),1,76,6,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-147,GETDATE()),3,49,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-147,GETDATE()),2,48,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-146,GETDATE()),8,18,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-145,GETDATE()),7,47,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-144,GETDATE()),13,67,3,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-144,GETDATE()),16,40,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-144,GETDATE()),10,37,5,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-143,GETDATE()),9,24,7,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-143,GETDATE()),7,35,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-142,GETDATE()),10,18,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-142,GETDATE()),11,19,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-142,GETDATE()),12,29,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-142,GETDATE()),15,9,2,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-142,GETDATE()),9,1,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-141,GETDATE()),6,29,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-141,GETDATE()),7,14,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-140,GETDATE()),7,76,2,1,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-139,GETDATE()),13,77,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-138,GETDATE()),14,14,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-137,GETDATE()),8,2,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-136,GETDATE()),9,13,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-136,GETDATE()),7,60,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-136,GETDATE()),10,71,7,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-135,GETDATE()),17,62,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-135,GETDATE()),14,43,4,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-135,GETDATE()),10,54,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-135,GETDATE()),7,64,7,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-134,GETDATE()),6,28,1,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-134,GETDATE()),11,37,2,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-133,GETDATE()),5,40,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-133,GETDATE()),11,41,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-132,GETDATE()),10,31,1,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-132,GETDATE()),8,12,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-131,GETDATE()),17,48,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-131,GETDATE()),15,77,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-130,GETDATE()),1,21,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-130,GETDATE()),8,16,4,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-129,GETDATE()),1,78,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-128,GETDATE()),3,43,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-128,GETDATE()),5,31,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-128,GETDATE()),10,20,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-127,GETDATE()),15,49,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-127,GETDATE()),14,17,7,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-126,GETDATE()),17,58,5,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-125,GETDATE()),2,64,4,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-125,GETDATE()),5,31,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-125,GETDATE()),6,78,7,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-124,GETDATE()),6,78,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-124,GETDATE()),4,79,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-124,GETDATE()),14,23,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-123,GETDATE()),13,10,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-123,GETDATE()),10,15,3,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-123,GETDATE()),11,61,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-123,GETDATE()),8,62,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-123,GETDATE()),7,43,4,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-122,GETDATE()),8,8,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-122,GETDATE()),10,4,2,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-122,GETDATE()),8,24,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-122,GETDATE()),9,79,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-122,GETDATE()),7,80,6,3,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-121,GETDATE()),10,31,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-121,GETDATE()),12,28,5,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-121,GETDATE()),16,32,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-121,GETDATE()),17,18,7,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-120,GETDATE()),4,1,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-120,GETDATE()),5,16,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-120,GETDATE()),6,74,3,2,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-119,GETDATE()),1,81,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-119,GETDATE()),5,82,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-118,GETDATE()),4,33,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-117,GETDATE()),8,73,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-117,GETDATE()),10,83,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-116,GETDATE()),14,24,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-115,GETDATE()),16,84,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-115,GETDATE()),14,4,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-115,GETDATE()),13,14,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-115,GETDATE()),8,85,7,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-114,GETDATE()),5,86,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-114,GETDATE()),2,80,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-114,GETDATE()),1,67,9,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-114,GETDATE()),5,59,8,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-113,GETDATE()),8,49,9,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-113,GETDATE()),14,6,8,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-113,GETDATE()),5,67,10,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-112,GETDATE()),6,51,11,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-112,GETDATE()),7,87,12,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-112,GETDATE()),5,12,12,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-111,GETDATE()),17,88,7,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-111,GETDATE()),10,16,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-111,GETDATE()),5,66,12,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-110,GETDATE()),8,89,8,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-110,GETDATE()),4,90,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-110,GETDATE()),7,14,11,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-110,GETDATE()),10,40,8,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-110,GETDATE()),14,31,6,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-109,GETDATE()),13,91,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-109,GETDATE()),10,92,2,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-109,GETDATE()),6,21,13,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-108,GETDATE()),8,18,10,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-108,GETDATE()),7,16,7,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-108,GETDATE()),4,2,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-107,GETDATE()),15,18,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-106,GETDATE()),17,43,6,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-106,GETDATE()),16,21,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-106,GETDATE()),10,4,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-106,GETDATE()),9,5,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-106,GETDATE()),7,15,6,3,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-106,GETDATE()),12,93,10,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-105,GETDATE()),14,94,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-105,GETDATE()),5,95,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-105,GETDATE()),6,96,12,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-105,GETDATE()),9,97,10,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-104,GETDATE()),10,98,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-104,GETDATE()),11,99,13,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-103,GETDATE()),12,43,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-103,GETDATE()),12,10,1,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-103,GETDATE()),12,16,5,2,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),4,100,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),5,101,13,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),8,86,10,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),10,102,3,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),12,45,12,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),16,103,10,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),17,22,9,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),4,104,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),8,14,5,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-102,GETDATE()),10,105,1,2,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),5,106,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),8,54,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),4,84,1,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),10,8,3,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),11,107,7,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),16,108,8,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),17,109,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),5,25,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),1,34,11,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),2,7,2,1,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),8,26,10,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),4,34,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),16,109,10,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),16,38,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-101,GETDATE()),15,25,8,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-100,GETDATE()),12,22,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-100,GETDATE()),1,4,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),2,88,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),6,67,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),17,101,6,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),11,108,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-98,GETDATE()),10,84,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-98,GETDATE()),10,48,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-97,GETDATE()),9,87,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-97,GETDATE()),6,67,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-95,GETDATE()),5,46,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-94,GETDATE()),1,109,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-94,GETDATE()),8,110,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-93,GETDATE()),5,66,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-93,GETDATE()),3,37,5,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-93,GETDATE()),16,12,4,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-92,GETDATE()),15,111,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-92,GETDATE()),12,100,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-92,GETDATE()),10,94,5,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-91,GETDATE()),3,90,7,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-91,GETDATE()),2,30,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-91,GETDATE()),2,30,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-90,GETDATE()),1,26,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-89,GETDATE()),8,101,6,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-89,GETDATE()),10,112,7,3,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-88,GETDATE()),12,108,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-88,GETDATE()),14,97,5,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-88,GETDATE()),15,79,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-87,GETDATE()),17,68,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-86,GETDATE()),13,13,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-86,GETDATE()),11,22,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-86,GETDATE()),10,10,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-85,GETDATE()),11,15,2,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-85,GETDATE()),12,20,3,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-85,GETDATE()),10,25,6,1,6)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-84,GETDATE()),13,35,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-84,GETDATE()),15,68,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-84,GETDATE()),17,84,4,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-83,GETDATE()),16,64,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-83,GETDATE()),14,99,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-82,GETDATE()),12,48,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-82,GETDATE()),10,10,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-81,GETDATE()),15,22,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-81,GETDATE()),11,61,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-81,GETDATE()),14,52,2,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-80,GETDATE()),16,58,1,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-80,GETDATE()),16,98,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-100,GETDATE()),12,22,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-100,GETDATE()),1,4,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),2,88,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),6,67,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),17,101,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-99,GETDATE()),11,108,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-98,GETDATE()),10,84,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-98,GETDATE()),10,48,6,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-97,GETDATE()),9,87,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-97,GETDATE()),6,67,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-95,GETDATE()),5,46,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-94,GETDATE()),1,109,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-94,GETDATE()),8,110,2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-93,GETDATE()),5,66,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-93,GETDATE()),3,37,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-93,GETDATE()),16,12,4,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-92,GETDATE()),15,111,5,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-92,GETDATE()),12,100,2,1,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-92,GETDATE()),10,94,5,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-91,GETDATE()),3,90,7,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-91,GETDATE()),2,30,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-91,GETDATE()),2,30,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-90,GETDATE()),1,26,2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-89,GETDATE()),8,101,6,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-89,GETDATE()),10,112,7,3,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-88,GETDATE()),12,108,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-88,GETDATE()),14,97,5,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-88,GETDATE()),15,79,4,1,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-87,GETDATE()),17,68,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-86,GETDATE()),13,13,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-86,GETDATE()),11,22,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-86,GETDATE()),10,10,1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-85,GETDATE()),11,15,2,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-85,GETDATE()),12,20,3,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-85,GETDATE()),10,25,6,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-84,GETDATE()),13,35,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-84,GETDATE()),15,68,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-84,GETDATE()),17,84,4,2,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-83,GETDATE()),16,64,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-83,GETDATE()),14,99,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-82,GETDATE()),12,48,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-82,GETDATE()),10,10,7,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-81,GETDATE()),15,22,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-81,GETDATE()),11,61,4,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-81,GETDATE()),14,52,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-80,GETDATE()),16,58,5,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-80,GETDATE()),16,98,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-79,GETDATE()),1,112,2,1,3)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-79,GETDATE()),3,100,5,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-78,GETDATE()),5,68,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-78,GETDATE()),8,81,2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-77,GETDATE()),7,60,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-77,GETDATE()),7,58,4,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-77,GETDATE()),8,55,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-77,GETDATE()),9,43,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-76,GETDATE()),20,111,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-76,GETDATE()),12,113,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-75,GETDATE()),10,101,7,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-75,GETDATE()),13,89,3,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-74,GETDATE()),20,98,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-74,GETDATE()),10,46,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-73,GETDATE()), 9, 3,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-73,GETDATE()),19,12,5,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-73,GETDATE()),19,10,7,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-73,GETDATE()),16,14,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-72,GETDATE()),20,100,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-72,GETDATE()),10,101,2,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-71,GETDATE()),20,87,3,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-71,GETDATE()),14,65,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-70,GETDATE()),20,21,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-70,GETDATE()),21,16,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-70,GETDATE()),20,15,5,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-70,GETDATE()),11,14,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-70,GETDATE()), 4,10,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-69,GETDATE()), 1,111,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-69,GETDATE()),1,113,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-69,GETDATE()),6,104,3,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-68,GETDATE()),20,84,2,2,2)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-68,GETDATE()),4,94,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-68,GETDATE()),8,63,7,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-68,GETDATE()),20,53,6,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-67,GETDATE()),14,105,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-67,GETDATE()),5,114,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-67,GETDATE()),20,103,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-67,GETDATE()),19,88,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-66,GETDATE()),4,111,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-66,GETDATE()),5,102,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-65,GETDATE()),6,84,3,1,5)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-65,GETDATE()),1,94,4,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-65,GETDATE()),20,51,2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-65,GETDATE()),14,25,3,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-65,GETDATE()),20,26,4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-64,GETDATE()),17,2,5,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-64,GETDATE()),20,1,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-64,GETDATE()),16,16,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-63,GETDATE()),2 ,1 ,7 ,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-63,GETDATE()),8 ,6 ,3 ,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-63,GETDATE()),2 ,16,2 ,2,4)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-62,GETDATE()),8 ,25,4 ,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-62,GETDATE()),20,34,13,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-62,GETDATE()),8 ,48,2 ,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-61,GETDATE()),20,59,5 ,3,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-61,GETDATE()),2 ,66,12,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-60,GETDATE()),8 ,79,7 ,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-60,GETDATE()),20,90,13,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-60,GETDATE()),8 ,101,12,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-59,GETDATE()),2 ,44 ,10,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-59,GETDATE()),1 ,68 ,11,1,1)
+--select count(*) from orders
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-59,GETDATE()),20,77 ,9,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-59,GETDATE()),8 ,110,11,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-58,GETDATE()),1,111,12,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-57,GETDATE()),3,115,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-56,GETDATE()),5,100,4,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-56,GETDATE()),2,98,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-56,GETDATE()),8,48,8,3,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-55,GETDATE()),8,41,11,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-55,GETDATE()),20,65,13,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-55,GETDATE()),4,88,12,1,4)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-54,GETDATE()),11,66,10,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-54,GETDATE()),19,51,2,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-54,GETDATE()),20,48,3,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-53,GETDATE()),21,87,1,3,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-53,GETDATE()),20,59,2,3,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-52,GETDATE()),14,62,4,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-52,GETDATE()),16,34,4,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-52,GETDATE()),10,55,5,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-51,GETDATE()),11,21,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-50,GETDATE()),13,11,8,1,1)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-49,GETDATE()),2,84,9,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-49,GETDATE()),8,115,12,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-49,GETDATE()),10,76,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-48,GETDATE()),12,116,4,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-48,GETDATE()),2,22,8,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-48,GETDATE()),8,24,13,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-48,GETDATE()),20,64,2,4,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-47,GETDATE()),2,84,10,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-47,GETDATE()),7,48,11,1,7)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-46,GETDATE()),20,99,4,2,7)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-46,GETDATE()),7,101,12,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-46,GETDATE()),10,44,11,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-45,GETDATE()),1,65,10,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-45,GETDATE()),21,98,8,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-44,GETDATE()),6,97,7,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-44,GETDATE()),8,18,8,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-43,GETDATE()),4,49,4,1,7)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-43,GETDATE()),20,21,8,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-42,GETDATE()),4,56,11,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-42,GETDATE()),2,117,4,1,2)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-41,GETDATE()),10,8,6,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-40,GETDATE()),11,18,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-39,GETDATE()),14,28,1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-39,GETDATE()),19,38,9,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-38,GETDATE()),10,48,2,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-38,GETDATE()),21,54,10,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-38,GETDATE()),11,51,1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-37,GETDATE()),15,56,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-37,GETDATE()),15,88,7,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-37,GETDATE()),12,113,6,1,6)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-36,GETDATE()),21,1,1,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-36,GETDATE()),17,8,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-36,GETDATE()),15,14,2,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-35,GETDATE()),21,16,3,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-35,GETDATE()),10,18,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-35,GETDATE()),8,22,8,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-34,GETDATE()),6,24,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-33,GETDATE()),8,26,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-32,GETDATE()),4,49,8,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-32,GETDATE()),2,100,11,1,5)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-31,GETDATE()),9,100,10,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-31,GETDATE()),4,101,13,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-30,GETDATE()),4,103,11,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-30,GETDATE()),7,106,13,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-29,GETDATE()),6,108,10,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-29,GETDATE()),8,110,13,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-28,GETDATE()),9,118,11,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-28,GETDATE()),9,116,12,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-28,GETDATE()),1,115,13,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-27,GETDATE()),2,102,13,1,1)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-27,GETDATE()),10,118,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-26,GETDATE()),12,98,10,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-26,GETDATE()),12,76,12,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-26,GETDATE()),14,84,1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-25,GETDATE()),16,16,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-25,GETDATE()),17,18,6,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-25,GETDATE()),19,49,2,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-24,GETDATE()),19,55,5,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-24,GETDATE()),20,15,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-24,GETDATE()),21,66,1,1,5)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-23,GETDATE()),7,30,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-22,GETDATE()),5,28,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-22,GETDATE()),1,43,12,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-22,GETDATE()),8,45,2,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-22,GETDATE()),12,1,11,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-21,GETDATE()),2,78,4,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-21,GETDATE()),8,61,8,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-21,GETDATE()),20,9,9,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-21,GETDATE()),2,15,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-20,GETDATE()),4,66,1,1,1)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-20,GETDATE()),5,46,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-20,GETDATE()),12,9,5,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-19,GETDATE()),20,3,13,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-19,GETDATE()),8,108,1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-19,GETDATE()),20,20,2,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-19,GETDATE()),8,115,6,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-19,GETDATE()),2,98,5,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-18,GETDATE()),2,94,13,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-18,GETDATE()),1,48,12,1,7)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-18,GETDATE()),6,55,11,2,6)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-18,GETDATE()),20,116,10,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-17,GETDATE()),21,103,11,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-17,GETDATE()),17, 99, 1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-17,GETDATE()),15, 45,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-16,GETDATE()),12, 44,10,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-16,GETDATE()),10, 22, 4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-16,GETDATE()),10, 49, 1,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-16,GETDATE()), 8,101, 2,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-15,GETDATE()), 2,100, 2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-15,GETDATE()),10,  9, 8,1,7)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-15,GETDATE()), 2,119, 1,1,7)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-14,GETDATE()),10,120,12,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-14,GETDATE()),14,101, 8,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-14,GETDATE()),16, 26, 2,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-13,GETDATE()),17, 38, 9,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-13,GETDATE()),19, 46, 4,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-13,GETDATE()),21, 54, 8,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-12,GETDATE()),21, 96,10,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-12,GETDATE()),20, 66,12,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-11,GETDATE()), 4,  2,13,1,4)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-11,GETDATE()),20, 58,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-10,GETDATE()), 2, 99,3,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-10,GETDATE()), 8,106,4,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-10,GETDATE()),20,121,5,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-10,GETDATE()), 4, 88,8,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-10,GETDATE()),10,79,10,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-10,GETDATE()),16,102,8,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,- 9,GETDATE()), 8,120,1,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,- 9,GETDATE()), 1, 87,3,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,- 9,GETDATE()),16, 99,3,1,5)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-8,GETDATE()),21,114,13,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-8,GETDATE()),20,101,10,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-8,GETDATE()), 8,108,11,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-7,GETDATE()),16,100,10,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-7,GETDATE()),14,115,13,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-7,GETDATE()), 4, 98, 4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-7,GETDATE()),20, 92, 1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-7,GETDATE()), 8, 81, 8,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-7,GETDATE()), 9, 71, 2,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-6,GETDATE()),10, 62, 11,2,2)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-6,GETDATE()),1,121,11,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-6,GETDATE()),3,122,12,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-5,GETDATE()),2,105,1,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-5,GETDATE()),4,95,10,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-5,GETDATE()),5,85,12,2,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-5,GETDATE()),1,66,11,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-5,GETDATE()),6,24,13,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-5,GETDATE()),8,89,10,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-4,GETDATE()),9, 1,13,2,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-4,GETDATE()),9,11,13,1,1)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-4,GETDATE()),10,108,1,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-4,GETDATE()),12,98,10,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-3,GETDATE()),14,64,12,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-3,GETDATE()),12,15,13,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-3,GETDATE()),19,12, 6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),21,16, 2,2,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),13,25, 2,1,3)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),13,65, 1,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),11,85, 8,3,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),10,100,1,1,5)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),8,98,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-2,GETDATE()),2,64,3,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),4,84,3,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),5,10,4,1,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),1,66,1,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),5,78,7,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),14,80,6,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),15,18,12,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),14,102,9,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-1,GETDATE()),12,119,13,1,5)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),14,122,6,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),12,61,6,1,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),10,54,8,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),8,21,8,2,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),6,51,9,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),5,65,10,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),4,45,12,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),8,45,13,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),1,111,1,1,7)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),2,3,11,1,6)
+
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),2,2,10,1,7)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),5,77,3,1,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),12,25,1,3,4)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),20,25,2,2,6)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),21,46,4,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),20,84,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),16,97,2,2,5)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),14,84,1,1,1)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),13,56,8,1,2)
+INSERT INTO orders (order_date,product_id,customer_id,user_id,quantity,payment_method_id) VALUES (DATEADD(DAY,-0,GETDATE()),8,116,1,2,1)
+
+--	select * from orders order by order_date desc
+GO
+
+----------------------------------------------------------------------------------------------------------------------
+----------------------------------------------------------------------------------
+IF OBJECT_ID('tempdb..#temp_cust') IS NOT NULL BEGIN DROP TABLE #temp_cust END
+SELECT *
+INTO #temp_cust
+FROM (
+	SELECT 'Miss' as title,'Carol' as fname,'Appleby' as sname,'10 Haslam Street' as ad1,'Lowerside' as ad2,'Burnley' as ad3,'Lancs' as ad4,'BB4 2EL' as pc,'6110289161102891' as lcn,'0123' as exp,'601' as ccv,'C Appleby' as noc UNION
+	SELECT 'Mrs' as title,'Rebecca' as fname,'Baldwin' as sname,'1 Quarry Lane' as ad1,'Mansfield' as ad2,'Nottinghamshire' as ad3,NULL as ad4,'NG18 5DA' as pc,'6090499160904991' as lcn,'0923' as exp,'609' as ccv,'R Baldwin' as noc UNION
+	SELECT 'Mr' as title,'Malcolm' as fname,'Chang' as sname,'Richemunde' as ad1,'Woodlands Ride' as ad2,'South Ascot' as ad3,'Berkshire' as ad4,'SL5 9HN' as pc,'7021399170213991' as lcn,'1223' as exp,'712' as ccv,'M Chang' as noc UNION
+	SELECT 'Mr' as title,'Michael' as fname,'George' as sname,'12 Mibblethorpe Grove' as ad1,'Colchester' as ad2,'Sussex' as ad3,NULL as ad4,'CL8 4QH' as pc,'8040499180404991' as lcn,'0423' as exp,'804' as ccv,'M George' as noc UNION
+	SELECT 'Miss' as title,'Wendy' as fname,'Biddle' as sname,'1866 Sheffield Rd' as ad1,'Chesterfield ' as ad2,'South Yorkshire' as ad3,NULL as ad4,'S41 8NZ' as pc,'2011399120113991' as lcn,'1123' as exp,'211' as ccv,'W Biddle' as noc UNION
+	SELECT 'Mr' as title,'Jon' as fname,'Gregory' as sname,'50 Highfield Road' as ad1,NULL as ad2,'Purley' as ad3,'Surrey' as ad4,'CR8 2JG' as pc,'8270399182703991' as lcn,'0723' as exp,'807' as ccv,'J Gregory' as noc UNION
+	SELECT 'Mr' as title,'Reg' as fname,'Nasreen' as sname,'14 Sunters Close' as ad1,NULL as ad2,'High Wycombe' as ad3,'Bucks' as ad4,'HP12 4DZ' as pc,'6150889161508891' as lcn,'0523' as exp,'605' as ccv,'R Nasreen' as noc UNION
+	SELECT 'Mrs' as title,'Mary' as fname,'Pithers' as sname,'35 Dunstall Close' as ad1,'Tilehurst' as ad2,'Reading' as ad3,'Berkshire' as ad4,'RG31 5AY' as pc,'1210889112108891' as lcn,'0123' as exp,'101' as ccv,'M Pithers' as noc UNION
+	SELECT 'Mr' as title,'Martin' as fname,'Khan' as sname,'46 Birchwood Road' as ad1,'Petts Wood' as ad2,'Orpington' as ad3,'Kent' as ad4,'BR5 1NZ' as pc,'5190789151907891' as lcn,'0923' as exp,'509' as ccv,'M Khan' as noc UNION
+	SELECT 'Mr' as title,'George' as fname,'Twaddle' as sname,'Ivy Cottage Farm' as ad1,'Minstead' as ad2,'Lyndhurst' as ad3,NULL as ad4,'SO43 7FY' as pc,'1060689110606891' as lcn,'0623' as exp,'106' as ccv,'G Twaddle' as noc UNION
+	SELECT 'Ms' as title,'Muriel' as fname,'Carrington' as sname,'129 Beechwood Avenue' as ad1,NULL as ad2,'Sunbury-On-Thames' as ad3,'Middlesex' as ad4,'TW16 7QW' as pc,'1150589111505891' as lcn,'0523' as exp,'105' as ccv,'M Carrington' as noc UNION
+	SELECT 'Mr' as title,'Peter' as fname,'Bhatti' as sname,'1 Turnberry House, Whinshill Court' as ad1,'Cross Road' as ad2,'Sunningdale' as ad3,'Berkshire' as ad4,'SL5 9RU' as pc,'6201489162014891' as lcn,'1023' as exp,'610' as ccv,'P Bhatti' as noc UNION
+	SELECT 'Ms' as title,'Teresa' as fname,'Vogel' as sname,'42 Filey Road' as ad1,'Reading' as ad2,NULL as ad3,'Berks' as ad4,'RG1 3QQ' as pc,'7110489171104891' as lcn,'0123' as exp,'701' as ccv,'T Vogel' as noc UNION
+	SELECT 'Mrs' as title,'Joan' as fname,'Wilson' as sname,'5 Heron Court' as ad1,'72 Honor Oak Road' as ad2,'Forest Hill' as ad3,'London' as ad4,'SE23 3RX' as pc,'0121389101213891' as lcn,'1223' as exp,'012' as ccv,'J Wilson' as noc UNION
+	SELECT 'Mr' as title,'Alan' as fname,'Cox' as sname,'10 Bellview Close' as ad1,'Windsor' as ad2,NULL as ad3,NULL as ad4,'SL4 4EX' as pc,'7011389170113891' as lcn,'1123' as exp,'711' as ccv,'A Cox' as noc UNION
+	SELECT 'Mr' as title,'Ian' as fname,'Brown' as sname,'105 Vine Road' as ad1,'Stoke Poges' as ad2,'Bucks' as ad3,NULL as ad4,'SL2 7AA' as pc,'1270389112703891' as lcn,'0723' as exp,'107' as ccv,'I Brown' as noc UNION
+	SELECT 'Mr' as title,'Jeff' as fname,'Barnes' as sname,'49' as ad1,'Conway Crescent' as ad2,'Perivale     Greenford' as ad3,'London' as ad4,'UB6 8JA' as pc,'3160389131603891' as lcn,'0623' as exp,'306' as ccv,'J Barnes' as noc UNION
+	SELECT 'Ms' as title,'Anne' as fname,'Spicer' as sname,'11 Mount Park Road' as ad1,'Flat B' as ad2,'Ealing' as ad3,'London' as ad4,'W5 2RP' as pc,'0220389102203891' as lcn,'0223' as exp,'002' as ccv,'A Spicer' as noc UNION
+	SELECT 'Mrs' as title,'Brenda' as fname,'White' as sname,'Pear Tree Cottage' as ad1,'Pear Tree Green' as ad2,'Dunsfold' as ad3,'Surrey' as ad4,'GU8 4LS' as pc,'9180289191802891' as lcn,'0823' as exp,'908' as ccv,'B White' as noc UNION
+	SELECT 'Mr' as title,'Peter' as fname,'Swallow' as sname,'70 Chaffers Mead' as ad1,NULL as ad2,'Ashtead' as ad3,'Surrey' as ad4,'KT21 1NH' as pc,'2080289120802891' as lcn,'0823' as exp,'208' as ccv,'P Swallow' as noc UNION
+	SELECT 'Mrs' as title,'Diana' as fname,'Cameron' as sname,'14 Howard Street' as ad1,'Ramsbottom' as ad2,'Bury' as ad3,'Lancs' as ad4,'BL9 6TD' as pc,'2160989121609891' as lcn,'0623' as exp,'206' as ccv,'D Cameron' as noc UNION
+	SELECT 'Ms' as title,'Ellen' as fname,'Smith' as sname,'10 Cleveland Park' as ad1,'Stanwell' as ad2,'Staines' as ad3,'Middlesex' as ad4,'TW19 7LX' as pc,'4280189142801891' as lcn,'0823' as exp,'408' as ccv,'E Smith' as noc UNION
+	SELECT 'Ms' as title,'Margaret' as fname,'Kenny' as sname,'Westleigh Cottage' as ad1,'Oxford Road' as ad2,'Sutton Scotney' as ad3,'Hants' as ad4,'SO21 3JG' as pc,'4140879141408791' as lcn,'0423' as exp,'404' as ccv,'M Kenny' as noc UNION
+	SELECT 'Mrs' as title,'Maya' as fname,'Morrison' as sname,'10 Bolderwood' as ad1,'West Wickham' as ad2,'Kent' as ad3,NULL as ad4,'BR4 9PH' as pc,'6040879160408791' as lcn,'0423' as exp,'604' as ccv,'M Morrison' as noc UNION
+	SELECT 'Mrs' as title,'Susan' as fname,'Matheison' as sname,'13 Victoria Grove' as ad1,'London' as ad2,NULL as ad3,NULL as ad4,'W8 5RW' as pc,'3130879131308791' as lcn,'0323' as exp,'303' as ccv,'S Matheison' as noc UNION
+	SELECT 'Miss' as title,'Nadezda' as fname,'Shaw' as sname,'72 Greyhound Road' as ad1,'Fulham' as ad2,'London' as ad3,NULL as ad4,'W6 8NU' as pc,'7201779172017791' as lcn,'1023' as exp,'710' as ccv,'N Shaw' as noc UNION
+	SELECT 'Mr' as title,'Raymond' as fname,'Gray' as sname,'22 Arlington Road' as ad1,'Ealing' as ad2,'London' as ad3,NULL as ad4,'W13 8PE' as pc,'0390779103907791' as lcn,'0923' as exp,'009' as ccv,'R Gray' as noc UNION
+	SELECT 'Mrs' as title,'Sue' as fname,'Falzon' as sname,'The Courtyard' as ad1,'Chertsey Road' as ad2,'Shepperton' as ad3,'Middlesex' as ad4,'TW17 9LA' as pc,'1260779112607791' as lcn,'0623' as exp,'106' as ccv,'S Falzon' as noc UNION
+	SELECT 'Mrs' as title,'Janette' as fname,'Gilbert' as sname,'15 St Martins Court' as ad1,'Kingston Crescent' as ad2,'Ashford' as ad3,'Middlesex' as ad4,'TW15 3NB' as pc,'7170779171707791' as lcn,'0723' as exp,'707' as ccv,'J Gilbert' as noc UNION
+	SELECT 'Mr' as title,'Kevin' as fname,'Pahler' as sname,'33 Staple Gardens' as ad1,'Winchester' as ad2,'Hants' as ad3,NULL as ad4,'SO23 8SR' as pc,'2140779121407791' as lcn,'0423' as exp,'204' as ccv,'K Pahler' as noc UNION
+	SELECT 'Mr' as title,'Michael' as fname,'Smith' as sname,'2 Hogarth Avenue' as ad1,'Ashford' as ad2,NULL as ad3,'Middlesex' as ad4,'TW15 1QA' as pc,'7170779171707791' as lcn,'0723' as exp,'707' as ccv,'M Smith' as noc UNION
+	SELECT 'Mr' as title,'Michael' as fname,'Murray' as sname,'27 Brookscoft' as ad1,'Linton Galde' as ad2,'Selsdon' as ad3,NULL as ad4,'CR0 9NA' as pc,'1230779112307791' as lcn,'0323' as exp,'103' as ccv,'M Murray' as noc UNION
+	SELECT 'Mrs' as title,'Beverley' as fname,'Chu' as sname,'32 Walton Bridge Road' as ad1,NULL as ad2,'Shepperton' as ad3,'Middlesex' as ad4,'TW17 8NE' as pc,'1130779111307791' as lcn,'0323' as exp,'103' as ccv,'B Chu' as noc UNION
+	SELECT 'Mr' as title,'Rik' as fname,'Sherman' as sname,'28 Crichton Avenue' as ad1,'Wallington' as ad2,'Surrey' as ad3,NULL as ad4,'SM6 8HL' as pc,'1030779110307791' as lcn,'0323' as exp,'103' as ccv,'R Sherman' as noc UNION
+	SELECT 'Mrs' as title,'Pat' as fname,'Thomas' as sname,'45 Meadway' as ad1,'Staines' as ad2,'' as ad3,'Middlesex' as ad4,'TW18 2PW' as pc,'8021679180216791' as lcn,'1223' as exp,'812' as ccv,'P Thomas' as noc UNION
+	SELECT 'Ms' as title,'Jane' as fname,'Brown' as sname,'44 Spelthorne Grove' as ad1,NULL as ad2,'Sunbury-On-Thames' as ad3,'Middlesex' as ad4,'TW16 7BZ' as pc,'8211679182116791' as lcn,'1123' as exp,'811' as ccv,'J Madzelewska' as noc UNION
+	SELECT 'Mr' as title,'John' as fname,'Kelly' as sname,'21 Southbourne Way' as ad1,'Porton' as ad2,'Salisbury' as ad3,'Wilts' as ad4,'SP4 0NN' as pc,'6001679160016791' as lcn,'1023' as exp,'610' as ccv,'J Kelly' as noc UNION
+	SELECT 'Mrs' as title,'Marta' as fname,'Burridge' as sname,'3 Derwent Gardens' as ad1,'Alresford' as ad2,'Alresford Winchester' as ad3,'Hants' as ad4,'SO24 9NQ' as pc,'0390679103906791' as lcn,'0923' as exp,'009' as ccv,'M Burridge' as noc UNION
+	SELECT 'Mrs' as title,'Gloria' as fname,'Hoppe' as sname,'22 Avon Place' as ad1,'Reading' as ad2,'Berkshire' as ad3,NULL as ad4,'RG1 3LA' as pc,'5180679151806791' as lcn,'0823' as exp,'508' as ccv,'G Hoppe' as noc UNION
+	SELECT 'Mr' as title,'Andrew' as fname,'Watmough' as sname,'34 Youlden Drive' as ad1,NULL as ad2,'Camberley' as ad3,'Surrey' as ad4,'GU15 1AL' as pc,'9170679191706791' as lcn,'0723' as exp,'907' as ccv,'A Watmough' as noc UNION
+	SELECT 'Mrs' as title,'Stephanie' as fname,'Gildersleve' as sname,'11 Stoke Park Road' as ad1,'Bishopstoke' as ad2,'Eastleigh' as ad3,'Hants' as ad4,'SO50 6BN' as pc,'6250679162506791' as lcn,'0523' as exp,'605' as ccv,'S Gildersleve' as noc UNION
+	SELECT 'Miss' as title,'Stephanie' as fname,'Ntamark' as sname,'10 St Johns Road' as ad1,'Arlesey' as ad2,'Bedfordshire' as ad3,NULL as ad4,'SG15 6ST' as pc,'2030679120306791' as lcn,'0323' as exp,'203' as ccv,'S Ntamark' as noc UNION
+	SELECT 'Mrs' as title,'Lorraine' as fname,'Culling' as sname,'14 Lucan Drive' as ad1,'Laleham' as ad2,'Staines' as ad3,NULL as ad4,'TW18 1QS' as pc,'3210679132106791' as lcn,'0123' as exp,'301' as ccv,'L Culling' as noc UNION
+	SELECT 'Mr' as title,'Graham' as fname,'Ebanks' as sname,'Old Lane' as ad1,'St Johns' as ad2,'Crowborough' as ad3,'East Sussex' as ad4,'TN6 1RX' as pc,'4010679140106791' as lcn,'0123' as exp,'401' as ccv,'G Ebanks' as noc UNION
+	SELECT 'Mrs' as title,'Anna' as fname,'Umeh' as sname,'148 Wensley Road' as ad1,'Coley Park' as ad2,'Reading' as ad3,'Berkshire' as ad4,'RG1 6DW' as pc,'8121579181215791' as lcn,'1223' as exp,'812' as ccv,'A Umeh' as noc UNION
+	SELECT 'Miss' as title,'Vivienne' as fname,'Szczodra' as sname,'7 Buttercup Square' as ad1,'Greater Leys' as ad2,'Oxford' as ad3,NULL as ad4,'OX4 7XU' as pc,'3021579130215791' as lcn,'1223' as exp,'312' as ccv,'V Szczodra' as noc UNION
+	SELECT 'Mr' as title,'Ross' as fname,'Brown' as sname,'4 Shalbourne Rise' as ad1,'Camberley' as ad2,'Surrey' as ad3,'' as ad4,'GU15 2EJ' as pc,'1101579111015791' as lcn,'1023' as exp,'110' as ccv,'R Brown' as noc UNION
+	SELECT 'Mr' as title,'David' as fname,'Booth' as sname,'18 Fanshawe Crescent' as ad1,'Ware' as ad2,'Hertfordshire' as ad3,NULL as ad4,'SG12 0AS' as pc,'2280579122805791' as lcn,'0823' as exp,'208' as ccv,'D Booth' as noc UNION
+	SELECT 'Mr' as title,'Darrell' as fname,'Partlett' as sname,'52 Lammas Park Road' as ad1,'London' as ad2,NULL as ad3,NULL as ad4,'W5 5JB' as pc,'8080579180805791' as lcn,'0823' as exp,'808' as ccv,'D Partlett' as noc UNION
+	SELECT 'Mr' as title,'Gilbert' as fname,'Rogan' as sname,'25 Whitegate' as ad1,'Court Bushes Road' as ad2,'Whyteleafe' as ad3,NULL as ad4,'CR3 OBX' as pc,'9050579190505791' as lcn,'0523' as exp,'905' as ccv,'G Rogan' as noc UNION
+	SELECT 'Ms' as title,'Isabelle' as fname,'Vaughan' as sname,'26 Mapesbury Court' as ad1,'59 Shoot Up Hill' as ad2,'London' as ad3,NULL as ad4,'NW2 3PU' as pc,'6240579162405791' as lcn,'0423' as exp,'604' as ccv,'I Vaughan' as noc UNION
+	SELECT 'Mrs' as title,'Janet' as fname,'Wilding' as sname,'106 Dimond Road' as ad1,'Bitterne Park' as ad2,'Southampton' as ad3,NULL as ad4,'SO18 1JX' as pc,'4030579140305791' as lcn,'0323' as exp,'403' as ccv,'J Wilding' as noc UNION
+	SELECT 'Mr' as title,'John' as fname,'Leahy' as sname,'23 Natalie Close' as ad1,'Bedfont' as ad2,'Middlesex' as ad3,NULL as ad4,'TW14 8PJ' as pc,'3220579132205791' as lcn,'0223' as exp,'302' as ccv,'J Leahy' as noc UNION
+	SELECT 'Mrs' as title,'Julie' as fname,'Smith' as sname,'22 Temple Road' as ad1,'Hounslow' as ad2,'Middlesex' as ad3,NULL as ad4,'TW3 1XS' as pc,'6240579162405791' as lcn,'0423' as exp,'604' as ccv,'J Smith' as noc UNION
+	SELECT 'Mrs' as title,'Jill' as fname,'Baggaley' as sname,'249a London Road' as ad1,'West Malling' as ad2,'Kent' as ad3,NULL as ad4,'ME19 5AD' as pc,'8020579180205791' as lcn,'0223' as exp,'802' as ccv,'J Baggaley' as noc UNION
+	SELECT 'Mrs' as title,'Janice' as fname,'Nixon' as sname,'25 Hawthorndene Road' as ad1,'Hayes' as ad2,'Bromley' as ad3,'Kent' as ad4,'BR2 7DY' as pc,'8221479182214791' as lcn,'1223' as exp,'812' as ccv,'J Nixon' as noc UNION
+	SELECT 'Mr' as title,'Phil' as fname,'Evans' as sname,'51 stanway road' as ad1,'risinghurst' as ad2,'headington' as ad3,'oxford' as ad4,'OX3 8HU' as pc,'9111479191114791' as lcn,'1123' as exp,'911' as ccv,'P Evans' as noc UNION
+	SELECT 'Mrs' as title,'Susan' as fname,'Gobell' as sname,'Flat 1 Hamilton House' as ad1,'143 Wantage Road' as ad2,'Reading' as ad3,'Berkshire' as ad4,'RG30 2SL' as pc,'0101479101014791' as lcn,'1023' as exp,'010' as ccv,'S Gobell' as noc UNION
+	SELECT 'Mrs' as title,'Linda' as fname,'Abomeli' as sname,'2 Celia Court' as ad1,'Celia Crescent' as ad2,'Ashford' as ad3,'Middlesex' as ad4,'TW15 3NR' as pc,'2001479120014791' as lcn,'1023' as exp,'210' as ccv,'L Abomeli' as noc UNION
+	SELECT 'Mr' as title,'Clive' as fname,'Miller' as sname,'2 Fontmell Close' as ad1,'Ashford' as ad2,'Middlesex' as ad3,NULL as ad4,'TW15 2NN' as pc,'2070479120704791' as lcn,'0723' as exp,'207' as ccv,'C Miller' as noc UNION
+	SELECT 'Mrs' as title,'Elaine' as fname,'Langley' as sname,'5 Jenkins Close' as ad1,'Liebenrood Road' as ad2,'Reading' as ad3,NULL as ad4,'RG30 2EQ' as pc,'0160479101604791' as lcn,'0623' as exp,'006' as ccv,'E Langley' as noc UNION
+	SELECT 'Ms' as title,'Judith' as fname,'Adey-Williams' as sname,'23 Winterbourne Road' as ad1,'Abingdon' as ad2,'Oxford' as ad3,NULL as ad4,'OX14 1AJ' as pc,'3050479130504791' as lcn,'0523' as exp,'305' as ccv,'J Adey-Williams' as noc UNION
+	SELECT 'Ms' as title,'Rita' as fname,'Abbott' as sname,'155 Richmond Road' as ad1,'' as ad2,'Twickenham' as ad3,'MIddlesex' as ad4,'TW1 3AT' as pc,'6030479160304791' as lcn,'0323' as exp,'603' as ccv,'R Abbott' as noc UNION
+	SELECT 'Mr' as title,'Alexander' as fname,'Washington' as sname,'Lord Knyvetts Court' as ad1,'110 High Street' as ad2,'Stanwell' as ad3,'Middx' as ad4,'TW19 7JS' as pc,'8221379182213791' as lcn,'1223' as exp,'812' as ccv,'A Washington' as noc UNION
+	SELECT 'Mrs' as title,'Megan' as fname,'Jenner' as sname,'211 Woodthorpe Road' as ad1,'Ashford' as ad2,'Middlesex' as ad3,NULL as ad4,'TW15 3NJ' as pc,'2021379120213791' as lcn,'1223' as exp,'212' as ccv,'M Jenner' as noc UNION
+	SELECT 'Mrs' as title,'Therese' as fname,'Karelia' as sname,'128 Canterbury Avenue' as ad1,'Slough' as ad2,'Berkshire' as ad3,NULL as ad4,'SL2 1BQ' as pc,'1111379111113791' as lcn,'1123' as exp,'111' as ccv,'T Karelia' as noc UNION
+	SELECT 'Mrs' as title,'Jennifer' as fname,'Graham' as sname,'Amethyst' as ad1,'Alverstone Road' as ad2,'Apse Heath' as ad3,'Isle of Wight' as ad4,'PO36 0LF' as pc,'6001379160013791' as lcn,'1023' as exp,'610' as ccv,'J Graham' as noc UNION
+	SELECT 'Mrs' as title,'Heather' as fname,'Wallace' as sname,'42 Moorbank' as ad1,'Blackbird Leys' as ad2,'Oxford' as ad3,NULL as ad4,'OX4 6BJ' as pc,'2011379120113791' as lcn,'1123' as exp,'211' as ccv,'H Wallace' as noc UNION
+	SELECT 'Mr' as title,'Charles' as fname,'Kiley' as sname,'33 Dane Lane' as ad1,'Wilstead' as ad2,'Bedfordshire' as ad3,NULL as ad4,'MK45 3HT' as pc,'6090379160903791' as lcn,'0923' as exp,'609' as ccv,'C Kiley' as noc UNION
+	SELECT 'Mrs' as title,'Sandra' as fname,'Mahfouz' as sname,'36 Wye Close' as ad1,'Tilehurst' as ad2,'Reading' as ad3,'Berks' as ad4,'RG30 4HS' as pc,'4170379141703791' as lcn,'0723' as exp,'407' as ccv,'S Mahfouz' as noc UNION
+	SELECT 'Mr' as title,'David' as fname,'McKeagney' as sname,'Prins Bernhardlaan 51' as ad1,'2341 KJ Oegstgeest' as ad2,NULL as ad3,'Netherlands' as ad4,'3738 DM' as pc,'1160379111603791' as lcn,'0623' as exp,'106' as ccv,'D McKeagney' as noc UNION
+	SELECT 'Mr' as title,'Graham' as fname,'Panesar' as sname,'12 Beechwood Avenue' as ad1,'Tilehurst' as ad2,'Reading' as ad3,NULL as ad4,'RG31 5BJ' as pc,'2060379120603791' as lcn,'0623' as exp,'206' as ccv,'G Panesar' as noc UNION
+	SELECT 'Mrs' as title,'Sandra' as fname,'Young' as sname,'15 Willow Close' as ad1,'Garsington' as ad2,'Oxford' as ad3,NULL as ad4,'OX44 9AN' as pc,'2050379120503791' as lcn,'0523' as exp,'205' as ccv,'S Young' as noc UNION
+	SELECT 'Ms' as title,'Julie' as fname,'Simpson' as sname,'135 Clayponds Gardens' as ad1,'Ealing' as ad2,'London' as ad3,NULL as ad4,'W5 4RG' as pc,'2080379120803791' as lcn,'0823' as exp,'208' as ccv,'J Simpson' as noc UNION
+	SELECT 'Mrs' as title,'Martha' as fname,'Ambrose-Holder' as sname,'1 Invermead Close' as ad1,'London' as ad2,NULL as ad3,NULL as ad4,'W6 0PY' as pc,'8130379181303791' as lcn,'0323' as exp,'803' as ccv,'M Ambrose-Holder' as noc UNION
+	SELECT 'Mrs' as title,'Freda' as fname,'Bedesha' as sname,'52 Shilling Close' as ad1,'Tilehurst' as ad2,'Reading' as ad3,'Berkshire' as ad4,'RG30 4EW' as pc,'4130379141303791' as lcn,'0323' as exp,'403' as ccv,'F Bedesha' as noc UNION
+	SELECT 'Mrs' as title,'Antoinette' as fname,'Buckley' as sname,'51 Norcot Road' as ad1,'Tilehurst' as ad2,'Reading' as ad3,'Berkshire' as ad4,'RG30 6BP' as pc,'2120379121203791' as lcn,'0223' as exp,'202' as ccv,'A Buckley' as noc UNION
+	SELECT 'Mr' as title,'Peter' as fname,'Lawal' as sname,'16 Bideford Gardens' as ad1,'Enfield' as ad2,NULL as ad3,NULL as ad4,'EN1 2RP' as pc,'9020379190203791' as lcn,'0223' as exp,'902' as ccv,'P Lawal' as noc UNION
+	SELECT 'Mr' as title,'Murray' as fname,'Roe' as sname,'36 Clewer Street' as ad1,'Windsor' as ad2,'Berkshire' as ad3,NULL as ad4,'SL4 3QB' as pc,'2010379120103791' as lcn,'0123' as exp,'201' as ccv,'M Roe' as noc UNION
+	SELECT 'Ms' as title,'Veronica' as fname,'Graham' as sname,'174 Botley Road' as ad1,'Oxford' as ad2,NULL as ad3,NULL as ad4,'OX2 OHW' as pc,'1021279110212791' as lcn,'1223' as exp,'112' as ccv,'V Graham' as noc UNION
+	SELECT 'Mrs' as title,'Gillian' as fname,'Pollock' as sname,'53 Sunningdale Avenue' as ad1,'Hanworth' as ad2,'Feltham' as ad3,'Middlesex' as ad4,'TW13 5JR' as pc,'2101279121012791' as lcn,'1023' as exp,'210' as ccv,'G Pollock' as noc UNION
+	SELECT 'Mrs' as title,'Linda' as fname,'Webb' as sname,'Archways' as ad1,'River Road' as ad2,'Taplow' as ad3,'Maidenhead' as ad4,'SL6 0BG' as pc,'1290279112902791' as lcn,'0923' as exp,'109' as ccv,'L Webb' as noc UNION
+	SELECT 'Mr' as title,'Gad' as fname,'Akande' as sname,'55 Edinburgh Drive' as ad1,NULL as ad2,'Laleham' as ad3,'Middlesex' as ad4,'TW18 1PJ' as pc,'4190279141902791' as lcn,'0923' as exp,'409' as ccv,'G Akande' as noc UNION
+	SELECT 'Mrs' as title,'Joyce' as fname,'Slater' as sname,'2 Edmondson Close' as ad1,NULL as ad2,'Brampton' as ad3,'Cumbria' as ad4,'CA8 1GH' as pc,'8180279181802791' as lcn,'0823' as exp,'808' as ccv,'J Slater' as noc UNION
+	SELECT 'Mr' as title,'Richard' as fname,'Kanavathy' as sname,'2 Riverdale Apartments' as ad1,'Church Road' as ad2,'Newham' as ad3,'Gloucestershire' as ad4,'GL14 1AG' as pc,'1180279111802791' as lcn,'0823' as exp,'108' as ccv,'R Kanavathy' as noc UNION
+	SELECT 'Ms' as title,'Anna' as fname,'Holder' as sname,'47 Wiltshire Road' as ad1,'Wokingham' as ad2,'Berkshire' as ad3,NULL as ad4,'RG40 1TD' as pc,'3080279130802791' as lcn,'0823' as exp,'308' as ccv,'A Holder' as noc UNION
+	SELECT 'Mr' as title,'Raymond' as fname,'Bartlett' as sname,'218 Fane Drive' as ad1,'Berinsfield' as ad2,'Wallingford' as ad3,'Oxfordshire' as ad4,'OX10 7QL' as pc,'8170279181702791' as lcn,'0723' as exp,'807' as ccv,'R Bartlett' as noc UNION
+	SELECT 'Mr' as title,'Alan' as fname,'Masood' as sname,'1 St Thomas House' as ad1,'Bromyard Avenue' as ad2,'Acton' as ad3,'London' as ad4,'W3 7XL' as pc,'3170279131702791' as lcn,'0723' as exp,'307' as ccv,'A Masood' as noc UNION
+	SELECT 'Mr' as title,'Steve' as fname,'Murray' as sname,'Westavon' as ad1,'Stratford upon avon' as ad2,'Warwickshire' as ad3,NULL as ad4,'CV37 6DW' as pc,'1060279110602791' as lcn,'0623' as exp,'106' as ccv,'S Murray' as noc UNION
+	SELECT 'Mrs' as title,'Sheila' as fname,'Stone' as sname,'8 Rolleston Drive' as ad1,'Lenton' as ad2,'Nottingham' as ad3,'Notts' as ad4,'NG2 4EU' as pc,'0150279101502791' as lcn,'0523' as exp,'005' as ccv,'S Stone' as noc UNION
+	SELECT 'Mr' as title,'Leonard' as fname,'Ogunbambo' as sname,'2 Edith Court' as ad1,'Upper Road' as ad2,'Kennington' as ad3,'Oxford' as ad4,'OX1 5NJ' as pc,'7240279172402791' as lcn,'0423' as exp,'704' as ccv,'L Ogunbambo' as noc UNION
+	SELECT 'Mrs' as title,'Angela' as fname,'Langston' as sname,'Ferndale' as ad1,'Croft Road' as ad2,'Shinfield Reading' as ad3,'Berks' as ad4,'RG2 9EX' as pc,'4040279140402791' as lcn,'0423' as exp,'404' as ccv,'A Langston' as noc UNION
+	SELECT 'Mrs' as title,'Lynne' as fname,'Phillips' as sname,'Court Managers Flat' as ad1,'Rowan Court' as ad2,'Newquay Drive,Lwr Earley' as ad3,'Reading' as ad4,'RG6 4EJ' as pc,'6030279160302791' as lcn,'0323' as exp,'603' as ccv,'L Phillips' as noc UNION
+	SELECT 'Mrs' as title,'Kay' as fname,'Burke' as sname,'46 Windsor Road' as ad1,'Chobham' as ad2,'Woking' as ad3,'Surrey' as ad4,'GU24 8LD' as pc,'5220279152202791' as lcn,'0223' as exp,'502' as ccv,'K Burke' as noc UNION
+	SELECT 'Ms' as title,'Elaine' as fname,'Tyndale-Ford' as sname,'15 Harolde Close' as ad1,'Headington' as ad2,'Oxford' as ad3,NULL as ad4,'OX3 9SQ' as pc,'9020279190202791' as lcn,'0223' as exp,'902' as ccv,'E Tyndale-Ford' as noc UNION
+	SELECT 'Ms' as title,'Joyce' as fname,'Haas' as sname,'38 Pine Wood' as ad1,'Sunbury-On-Thames' as ad2,'Middlesex' as ad3,NULL as ad4,'TW16 6SG' as pc,'8121869181218691' as lcn,'1223' as exp,'812' as ccv,'J Haas' as noc UNION
+	SELECT 'Miss' as title,'Holly' as fname,'Reeves' as sname,'201 Turton Road' as ad1,'Hambleton' as ad2,'Nottingham' as ad3,NULL as ad4,'NG2 14RG' as pc,'7080000270800002' as lcn,'0823' as exp,'708' as ccv,'H Reeves' as noc UNION
+	SELECT 'Mr' as title,'Michael' as fname,'Marks' as sname,'The Retreat,' as ad1,'Woodperry road' as ad2,'Beckley' as ad3,'Oxfordshire' as ad4,'OX3 9UZ' as pc,'1070369110703691' as lcn,'0723' as exp,'107' as ccv,'M Marks' as noc UNION
+	SELECT 'Ms' as title,'Mary' as fname,'Ali' as sname,'5 Saxifrage Square' as ad1,NULL as ad2,'Oxford' as ad3,'Oxon' as ad4,'OX4 7WR' as pc,'6030369160303691' as lcn,'0323' as exp,'603' as ccv,'M Ali' as noc UNION
+	SELECT 'Mr' as title,'Gareth' as fname,'Ainsworth' as sname,'8 Old South Close' as ad1,'Hatch End' as ad2,'Pinner' as ad3,'Middlesex' as ad4,'HA5 4TW' as pc,'5270800252708002' as lcn,'0723' as exp,'507' as ccv,'G Ainsworth' as noc UNION
+	SELECT 'Mr' as title,'Owen' as fname,'Durbin' as sname,'16 Kendal Close' as ad1,'Timperley' as ad2,'Altrincham' as ad3,'Cheshire' as ad4,'SK2 5TF' as pc,'6030800260308002' as lcn,'0323' as exp,'603' as ccv,'O Durbin' as noc UNION
+	SELECT 'Mrs' as title,'Julie' as fname,'Arndt' as sname,'19 Roman Way' as ad1,'Cheltenham' as ad2,'Gloucester' as ad3,'GLoustershire' as ad4,'GL5 9RS' as pc,'0280699102806991' as lcn,'0823' as exp,'008' as ccv,'J Arndt' as noc UNION
+	SELECT 'Mrs' as title,'Jodie' as fname,'Burnham' as sname,'1 Gigg Lane' as ad1,'Bury' as ad2,'Lancs' as ad3,NULL as ad4,'BL9 0HR' as pc,'0360300203603002' as lcn,'0623' as exp,'006' as ccv,'J Burnham' as noc UNION
+	SELECT 'Mr' as title,'Mike' as fname,'Nunkoo' as sname,'6 The Covert' as ad1,'Woodsrock' as ad2,'Oxon' as ad3,NULL as ad4,'OX20 1UU' as pc,'9180799191807991' as lcn,'0823' as exp,'908' as ccv,'M Nunkoo' as noc UNION
+	SELECT 'Miss' as title,'Yvonne' as fname,'Smith' as sname,'62 Berryscroft' as ad1,'Laleham' as ad2,'Staines' as ad3,'Middlesex' as ad4,'TW22 1BY' as pc,'6110799161107991' as lcn,'0123' as exp,'601' as ccv,'Y Smith' as noc UNION
+	SELECT 'Ms' as title,'Carrie' as fname,'Mathieson' as sname,'11 Chiltern Cloose' as ad1,'Ramsbottom' as ad2,'Bury' as ad3,'Lancashire' as ad4,'BL0 9LH' as pc,'1190699111906991' as lcn,'0923' as exp,'109' as ccv,'C Mathieson' as noc UNION
+	SELECT 'Mr' as title,'Oluyinka' as fname,'Smith' as sname,'1 Kirkstall Road' as ad1,'Leeds' as ad2,'Yorkshire' as ad3,NULL as ad4,'LS2 1JE' as pc,'9240699192406991' as lcn,'0423' as exp,'904' as ccv,'O Smith' as noc UNION
+	SELECT 'Miss' as title,'Sylvia' as fname,'Smith' as sname,'22 The Maltings' as ad1,NULL as ad2,'Thatcham' as ad3,'Berkshire' as ad4,'RG19 4YB' as pc,'3110699131106991' as lcn,'0123' as exp,'301' as ccv,'S Smith' as noc UNION
+	SELECT 'Mr' as title,'Dominic' as fname,'Hartman' as sname,'Lindnerstraße' as ad1,'Oberhausen' as ad2,NULL as ad3,'Deutschland' as ad4,'46149' as pc,'5001599150015991' as lcn,'1023' as exp,'510' as ccv,'D Hartman' as noc UNION
+	SELECT 'Mrs' as title,'Leanne' as fname,'Swale' as sname,'12 Barncroft Street' as ad1,'Hayes' as ad2,'West London' as ad3,NULL as ad4,'W1A 4WW' as pc,'1541548451324155' as lcn,'0624' as exp,'152' as ccv,'L Swale' as noc UNION
+	SELECT 'Miss' as title,'Karen' as fname,'Ready' as sname,'8 O''Connell Street' as ad1,'Dublin' as ad2,NULL as ad3,'Eire' as ad4,'DU4 5TW' as pc,'8494578451564811' as lcn,'0825' as exp		,'468' as ccv,'Karen Ready' as noc UNION
+	SELECT 'Mr' as title,'Howard' as fname,'Roebuck' as sname,'The Farm' as ad1,'Addlington Village' as ad2,'Sussex' as ad3,NULL as ad4,'RH13 9TD' as pc,'1546598545123001' as lcn,'0126' as exp,'774' as ccv,'Mr H Roebuck' as noc UNION
+	SELECT 'Ms' as title,'Julia' as fname,'Wright' as sname,'88 Liddy Road' as ad1,'Belfast' as ad2,NULL as ad3,'Northern Ireland' as ad4,'BT12 7AR' as pc,'4567845154659865' as lcn,'0625' as exp			,'458' as ccv,'Ms J Wright' as noc UNION
+	SELECT 'Mr' as title,'Gavin' as fname,'Taylor' as sname,'Jameson Road' as ad1,'Stourbridge' as ad2,'West Midlands' as ad3,NULL as ad4,'B63 1EZ' as pc,'1154653859684512' as lcn,'0425' as exp,'658' as ccv,'G Taylor' as noc UNION
+	SELECT 'Mr' as title,'Peter' as fname,'Leary' as sname,'22 Roestrasse' as ad1,'Berlin' as ad2,NULL as ad3,'Germany' as ad4,'64840' as pc,'4518456798456981' as lcn,'0826' as exp			,'445' as ccv,'Peter Leary' as noc UNION
+	SELECT 'Mme' as title,'Rochelle' as fname,'De La Mare' as sname,'440 Rue De Lineal' as ad1,'Versailles' as ad2,'Paris' as ad3,'France' as ad4,'12545' as pc,'548451548552' as lcn,'0125' as exp,'984' as ccv, 'R De La Mare' as noc UNION
+	SELECT 'Mrs' as title,'Hilary' as fname,'Brunton' as sname,'42 Snape Road' as ad1,'Longsight' as ad2,'Manchester' as ad3,'' as ad4,'M14 5BQ' as pc,'4596145489451554' as lcn,'0423' as exp,'846' as ccv, 'H Brunton' as noc UNION
+	SELECT 'Rev' as title,'James' as fname,'Hope' as sname,'The Vicarage' as ad1,'Bradford Street' as ad2,'Leeds' as ad3,'Yorkshire' as ad4,'LS3 2JE' as pc,'4581546584994652' as lcn,'0624' as exp,'120' as ccv, 'Rev James Hope' as noc UNION
+	SELECT 'Miss' as title,'Holly' as fname,'Majors' as sname,'28 Wright Avenue' as ad1,'Littlehampton' as ad2,'West Sussex' as ad3,'' as ad4,'BN16 8JS' as pc,'4515451546581545' as lcn,'1124' as exp,'518' as ccv, 'Miss H Majors' as noc UNION
+	SELECT 'Mr' as title,'Steve' as fname,'Harrison' as sname,'10a Lever House' as ad1,'Giroud Street' as ad2,'Oldham' as ad3,'Lancs' as ad4,'OL6 0FA' as pc,'5454848495954512' as lcn,'0525' as exp,'156' as ccv, 'S Harrison' as noc  UNION
+	SELECT 'Mrs' as title,'Jessica' as fname,'Windrush' as sname,'14 Holbeck Close' as ad1,'Gorton' as ad2,'Manchester' as ad3,NULL as ad4,'M23 5NK' as pc,'5454879764512466' as lcn,'0524' as exp,'482' as ccv, 'Mrs J Windrush' as noc  UNION
+	SELECT 'Ms' as title,'Trish' as fname,'Daly' as sname,'111 Godin Place' as ad1,'Queens' as ad2,'New York' as ad3,'USA' as ad4,'10003' as pc,'5494581154659321' as lcn,'0624' as exp,'159' as ccv, 'T Daly' as noc 
+
+	--add more customers  or change existing ones to being foreign addresses
+
+	) s
+GO
+
+--	SELECT * FROM #temp_cust
+
+--------------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------
+--FIXING THE DATA
+
+
+--we need to run this section at least 3 times because some bits of code undo the work the prev ones have done
+DECLARE @counter INT = 0
+
+WHILE @counter <= 3
+BEGIN
+
+--need to make sure payment methods are consistent
+--take a customer's FIRST payment method and update all subsequent purchases to the same pay method id
+UPDATE o
+SET o.payment_method_id = first_pay.payment_method_id
+--	SELECT *
+FROM orders o
+INNER JOIN (
+	SELECT o.customer_id
+		,o.order_id
+		,o.order_date
+		,o.payment_method_id
+		,pm.payment_method_desc
+		,DENSE_RANK()OVER(PARTITION BY o.customer_id ORDER BY o.order_id) as cust_rank
+	FROM orders o
+	INNER JOIN payment_methods pm ON pm.payment_method_id=o.payment_method_id
+	) first_pay ON first_pay.customer_id = o.customer_id and first_pay.cust_rank = 1
+WHERE o.payment_method_id <> first_pay.payment_method_id
+
+--check the above, to make sure every customer has ONE pay method
+--SELECT customer_id,COUNT(DISTINCT payment_method_id) as payment_method_id FROM orders GROUP BY customer_id HAVING COUNT(DISTINCT payment_method_id) > 1
+
+--find where pay method is inconsistent with user id e.g. internet and cash. Set these to user id = 3
+UPDATE o
+SET o.user_id = 3
+--	select *
+FROM orders o 
+INNER JOIN users u ON u.user_id=o.user_id 
+INNER JOIN payment_methods pm ON pm.payment_method_id = o.payment_method_id
+WHERE 
+	o.user_id = 1
+AND pm.payment_method_desc IN ('Cash','Voucher')
+
+--SELECT * FROM payment_methods
+
+--need to update user id or payment method so they make sense
+-- if its an internet order made with cash or voucher, then switch to paypal
+
+--	if its an instore purchase, then can't use paypal, set to debit card
+UPDATE o
+SET o.payment_method_id = 2
+--	select *
+FROM orders o 
+INNER JOIN users u ON u.user_id=o.user_id 
+INNER JOIN payment_methods pm ON pm.payment_method_id = o.payment_method_id
+WHERE ISNULL(u.system_username,'') <> 'Internet'
+AND pm.payment_method_desc IN ('Paypal')
+
+
+--We need to make sure users are consistent. A customer who orders online will ALWAYS order online and vice versa
+--if someone has EVER ordered via internet (user_id = 1) then update ALL their orders to be user id = 1
+UPDATE o
+SET o.user_id = 1
+--	SELECT *
+FROM orders o
+INNER JOIN (
+	SELECT DISTINCT o.customer_id
+	FROM orders o 
+	INNER JOIN users u ON u.user_id=o.user_id 
+	INNER JOIN payment_methods pm ON pm.payment_method_id = o.payment_method_id
+	WHERE o.user_id = 1
+	) upd ON upd.customer_id = o.customer_id
+WHERE o.user_id <> 1
+
+--SELECT @counter
+
+SET @counter += 1
+END
+
+---------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
+
+
+--	add all customers from the temp table to the customers table
+truncate table customers
+INSERT INTO customers (title,forename,surname)
+SELECT title,fname,sname
+FROM #temp_cust
+GO
+
+
+
+
+--we would only hold addresses for those who have made online or telephone purchases, all the rest are collected in-store on the day of purchase
+
+--	SELECT * FROM customer_addresses
+truncate table customer_addresses
+INSERT INTO customer_addresses (customer_id,address_1,address_2,address_3,address_4,postcode)
+SELECT c.customer_id,ad1,ad2,ad3,ad4,pc
+FROM #temp_cust tc
+inner join customers c ON c.title = tc.title
+					AND c.forename = tc.fname
+					AND c.surname = tc.sname
+WHERE c.customer_id in (
+	SELECT distinct o.customer_id
+	from orders o
+	inner join users u on u.user_id = o.user_id
+	WHERE ISNULL(u.system_username,'') = 'Internet'
+	)
+GO
+
+/*
+SELECT o.order_id
+	,o.order_date
+	,c.customer_id
+	,c.forename + ' ' + c.surname as customer_name
+	,ca.address_1,ca.address_2,ca.address_3,ca.address_4,ca.postcode
+	,ISNULL(u.system_username,u.forename + ' ' + u.surname) as username
+	,pm.payment_method_desc
+	,p.product_name
+	,pg.product_group_desc
+FROM orders o
+INNER JOIN users u ON u.user_id = o.user_id
+INNER JOIN payment_methods pm ON pm.payment_method_id=o.payment_method_id
+INNER JOIN customers c ON c.customer_id=o.customer_id
+LEFT JOIN customer_addresses ca ON ca.customer_id = c.customer_id
+INNER JOIN products p ON p.product_id = o.product_id
+INNER JOIN product_groups pg on pg.product_group_id = p.product_group_id
+ORDER BY o.order_date
+*/
+
+
+
+
+UPDATE ca
+SET ca.country_code = CASE 
+		WHEN address_3 = 'Netherlands' THEN 'ND'
+		WHEN address_4 = 'Deutschland' THEN 'DE'
+		WHEN address_4 = 'Germany' THEN 'DE'
+		WHEN address_4 = 'France' THEN 'FR'
+		WHEN address_4 = 'Northern Ireland' THEN 'NI'
+		WHEN address_4 = 'Eire' THEN 'IR'
+		WHEN address_4 = 'Netherlands' THEN 'ND'
+		WHEN address_4 = 'USA' THEN 'US'
+		ELSE 'UK' END
+from customer_addresses ca
+
+--	SELECT * FROM countries
+--	select * from customer_addresses
+
+--add pay details, but only for those customers who have paid by credit or debit card
+truncate table pay_details
+INSERT INTO pay_details(customer_id,long_card_number,expiry_date,ccv,name_on_card)
+SELECT c.customer_id,tc.lcn,tc.exp,tc.ccv,tc.noc
+FROM customers c
+inner join #temp_cust tc on c.forename = tc.fname and c.surname=tc.sname
+INNER JOIN (
+	select distinct customer_id
+	from orders o
+	inner join payment_methods pm on o.payment_method_id = pm.payment_method_id
+	WHERE payment_method_desc in ('Debit Card','Credit Card')
+	) paid_by_card ON paid_by_card.customer_id = c.customer_id
+GO
+----------------------------------------------------------------------------------------------------------
+
+UPDATE suppliers 
+SET address_1 = '1 Harrison Close'
+	,address_2 = 'Knowlhill'
+	,address_4 = 'Milton Keynes'
+	,postcode = 'MK5 8PA'
+	,country_code = 'UK'
+	,contact_name = 'Terry Monaghan'
+	,contact_number = '01908 304664'
+WHERE supplier_name = 'Vox / Korg UK Limited'
+GO
+
+UPDATE suppliers 
+SET address_1 = '28 Castle Street'
+	,address_2 = 'Bury'
+	,address_4 = 'Lancashire'
+	,postcode = 'BL0 2HY'
+	,country_code = 'UK'
+	,contact_name = 'Steve Makin'
+	,contact_number = '0161 767 3358'
+WHERE supplier_name = 'Music Books for All'
+GO
+
+UPDATE suppliers SET country_code = 'US' WHERE address_4 in ('Los Angeles. CA','AZ','TN','USA')
+UPDATE suppliers SET country_code = 'BE' WHERE address_4 in ('Belgium')
+UPDATE suppliers SET country_code = 'ND' WHERE address_4 in ('The Netherlands')
+UPDATE suppliers SET country_code = 'UK' WHERE country_code IS NULL
+GO
+
+--SELECT * FROM suppliers
+--SELECT * FROM orders
+----------------------------------------------------------------------------------------------------------
+
+SELECT p.product_id
+	,p.product_name
+	,p.supplier_id
+	,ISNULL(d.qty_delivered,0) as qty_delivered
+	,ISNULL(s.qty_sold,0) as qty_sold
+	,ISNULL(d.qty_delivered,0) - ISNULL(s.qty_sold,0) as in_stock
+	,CASE WHEN ISNULL(d.qty_delivered,0) - ISNULL(s.qty_sold,0) <= 10 THEN 'NEED TO RE-ORDER' ELSE '' END AS order_flag
+	,(SELECT MAX(customer_id) as max_cust FROM orders) as h_ord
+	,(SELECT MAX(customer_id) as max_cust FROM customers) as h_cust
+	,(SELECT SUM(quantity) as tot_qty_sold FROM orders) as tot_qty_sold
+	,DATEDIFF(DAY,(SELECT MAX(order_date) FROM orders),GETDATE())  as order_d_diff
+	,(select count(*) from orders) as tot_sales
+FROM products p
+LEFT JOIN (
+	SELECT product_id,SUM(quantity) as qty_sold
+	from orders
+	GROUP BY product_id
+	) s ON s.product_id = p.product_id
+LEFT JOIN (
+	SELECT product_id,SUM(usable_quantity) as qty_delivered
+	from deliveries
+	GROUP BY product_id
+	) d ON d.product_id = p.product_id
+
+--	select * from orders
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+--create a system start date 
+DECLARE @sytem_start_date DATETIME = (select min(order_date) from orders)
+
+
+--randomise times of orders and deliveries
+update orders set order_date = DATEADD(HOUR,(order_id - (floor(order_id / 10)*10))*-1,order_date)
+update orders set order_date = DATEADD(MINUTE,order_id * -1.78,order_date)
+update orders set order_date = DATEADD(SECOND,order_id * -3.43,order_date)
+GO
+
+--select * from orders order by order_date desc
+
+update deliveries set delivery_date = DATEADD(MINUTE,delivery_id * -0.2,delivery_date)
+update deliveries set delivery_date = DATEADD(SECOND,delivery_id * -3.3,delivery_date)
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+/*
+--test the data
+SELECT o.order_date
+	,p.product_name
+	,o.quantity
+	,c.customer_id
+	,c.forename + ' ' + c.surname as customer
+	,ca.address_1 + ' ' + ca.postcode as cust_address
+	,COALESCE(u.system_username,u.forename) as staff_member 
+	,pm.payment_method_desc
+	,pd.long_card_number
+FROM orders o 
+INNER JOIN products p ON p.product_id=o.product_id 
+INNER JOIN customers c ON c.customer_id=o.customer_id 
+left join customer_addresses ca on ca.customer_id = o.customer_id and ca.is_default_address = 1
+INNER JOIN users u ON u.user_id=o.user_id 
+INNER JOIN payment_methods pm ON pm.payment_method_id = o.payment_method_id
+left join pay_details pd on pd.customer_id = o.customer_id
+
+ORDER BY o.order_id
+*/
+
+---------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------
+
+--		FOREIGN KEYS
+
+ALTER TABLE products
+ADD CONSTRAINT fk_product_group_id
+FOREIGN KEY (product_group_id)
+REFERENCES product_groups(product_group_id)
+
+ALTER TABLE products
+ADD CONSTRAINT fk_supplier_id
+FOREIGN KEY (supplier_id)
+REFERENCES suppliers (supplier_id)
+
+ALTER TABLE product_price_history
+ADD CONSTRAINT fk_pph_products
+FOREIGN KEY (product_id)
+REFERENCES products(product_id)
+
+ALTER TABLE supplier_product_price_history
+ADD CONSTRAINT fk_supp_pph_products
+FOREIGN KEY (product_id)
+REFERENCES products(product_id)
+
+ALTER TABLE pay_details
+ADD CONSTRAINT fk_cust_pay_details
+FOREIGN KEY (customer_id)
+REFERENCES customers(customer_id)
+
+ALTER TABLE customer_addresses
+ADD CONSTRAINT fk_custaddress_countries
+FOREIGN KEY (country_code)
+REFERENCES countries (country_code)
+
+ALTER TABLE suppliers
+ADD CONSTRAINT fk_suppliers_countries
+FOREIGN KEY (country_code)
+REFERENCES countries (country_code)
+
+ALTER TABLE users
+ADD CONSTRAINT fk_users_auth_level
+FOREIGN KEY (auth_level_id)
+REFERENCES auth_levels(auth_level_id)
+
+ALTER TABLE deliveries
+ADD CONSTRAINT fk_deliv_products
+FOREIGN KEY (product_id)
+REFERENCES products(product_id)
+
+ALTER TABLE deliveries
+ADD CONSTRAINT fk_deliv_users
+FOREIGN KEY (user_id)
+REFERENCES users(user_id)
+
+ALTER TABLE deliveries
+ADD CONSTRAINT fk_deliv_suppliers
+FOREIGN KEY (supplier_id)
+REFERENCES suppliers(supplier_id)
+
+ALTER TABLE orders
+ADD CONSTRAINT fk_ord_products
+FOREIGN KEY (product_id)
+REFERENCES products(product_id)
+
+ALTER TABLE orders
+ADD CONSTRAINT fk_ord_customers
+FOREIGN KEY (customer_id)
+REFERENCES customers(customer_id)
+
+ALTER TABLE orders
+ADD CONSTRAINT fk_ord_users
+FOREIGN KEY (user_id)
+REFERENCES users(user_id)
+
+ALTER TABLE orders
+ADD CONSTRAINT fk_ord_payment_method
+FOREIGN KEY (payment_method_id)
+REFERENCES payment_methods(payment_method_id)

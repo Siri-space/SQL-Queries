@@ -1,0 +1,169 @@
+USE sql_hr
+
+/*
+There are 6 window functions
+
+RANK
+DENSE_RANK
+ROW_NUMBER
+NTILE
+LEAD
+LAG
+*/
+
+/*
+The RANK() function is used to give a unique rank to each record based on a specified value. If two records have the same value then the RANK() function will assign the same rank to both records by skipping the next rank
+The DENSE_RANK() function is identical to the RANK() function except that it does not skip any rank
+ROW_NUMBER - Assigns a unique row number to each record
+NTILE - helps you to identify what percentile (or quartile, or any other subdivision) a given row falls into
+*/
+
+SELECT e.person_id
+	,e.employee_number
+	,e.start_date as emp_start
+	--------------------------------
+	,RANK()OVER(ORDER BY e.start_date) as RANK_start_date
+	,DENSE_RANK()OVER(ORDER BY e.start_date) as DENSE_RANK_start_dt
+	,ROW_NUMBER()OVER(ORDER BY e.start_date) as ROW_NUM_start_dt
+	,ROW_NUMBER()OVER(ORDER BY e.employee_number, e.start_date) as ROW_NUM_employee_number
+	,NTILE(10)OVER(ORDER BY e.start_date) as NTILE_start_dt
+FROM employees e
+INNER JOIN job_history jh on jh.person_id = e.person_id
+ORDER BY e.start_date
+
+-------------------------------------------------------------------------------------------
+
+USE sql_sales--introducing PARTITION BY
+
+SELECT p.product_id
+	,p.product_name
+	,o.order_date
+	,cast(o.order_date as date) as ord_date
+	-----------------
+	,DENSE_RANK()OVER(ORDER BY p.product_id,cast(o.order_date as date)) as ord_rank
+	,DENSE_RANK()OVER(PARTITION BY p.product_id ORDER BY cast(o.order_date as date)) as ord_d_rank
+FROM sql_sales.dbo.orders o
+inner join sql_sales.dbo.products p on p.product_id=o.product_id
+order by product_id,cast(order_date as date)
+
+
+-----------------------------------------------------------------------------------------
+
+USE sql_hr
+
+SELECT e.person_id
+	,e.forename
+	,e.employee_number
+	,j.job_title
+	,jh.start_date as jh_start
+	--------------------------------
+	,DENSE_RANK()OVER(PARTITION BY e.person_id ORDER BY jh.start_date DESC) as D_RANK_jh_start
+FROM employees e
+INNER JOIN job_history jh on jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+ORDER BY e.person_id,jh.start_date DESC
+
+-----------------------------------------------------------------------------------------
+
+--LAG and LEAD and looking at Hires
+
+--a long winded way to do show people hired and the previous hire and next hire by start date
+WITH
+CTE_hires as (
+	SELECT person_id
+		,forename + ' ' + surname as emp_name
+		,start_date
+		,ROW_NUMBER()OVER(ORDER BY start_date) as row_no_start_dt
+	FROM employees
+	)
+
+SELECT *
+FROM CTE_hires h1
+LEFT JOIN CTE_hires hp ON h1.row_no_start_dt = hp.row_no_start_dt+1
+LEFT JOIN CTE_hires hn ON h1.row_no_start_dt = hn.row_no_start_dt-1
+ORDER BY h1.person_id
+
+
+--a better way to do this
+SELECT person_id
+	,forename + ' ' + surname as emp_name
+	,start_date as hire_date
+	,LAG(forename + ' ' + surname,1)OVER(ORDER BY start_date) as prev_hire
+	,LEAD(forename + ' ' + surname,1)OVER(ORDER BY start_date) as next_hire
+	------------------------------------------------------------------------
+	,LEAD(forename + ' ' + surname,2)OVER(ORDER BY start_date) as next_hire_2
+FROM employees
+ORDER BY person_id
+
+-------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------
+/* Using the sql_training database, and the employees_salaries table,
+Show me a list of employees’ current salaries, their previous salaries 
+and the percent increase
+*/
+
+IF OBJECT_ID('tempdb..#salaries') IS NOT NULL DROP TABLE #salaries
+SELECT emp_name
+	,salary
+	,salary_start_dt
+	,DENSE_RANK()OVER(PARTITION BY emp_name ORDER BY salary_start_dt DESC) as sal_rank
+INTO #salaries
+FROM sql_training.dbo.employees_salaries
+ORDER BY emp_name,salary_start_dt desc
+
+SELECT sc.emp_name
+	,sc.salary as curr_salary
+	,sp.salary as prev_salary
+	,(100/sp.salary) * (sc.salary-sp.salary) as perc_inc
+FROM #salaries sc
+LEFT JOIN #salaries sp ON sc.emp_name = sp.emp_name AND sp.sal_rank = 2
+WHERE sc.sal_rank = 1
+
+
+--using LAG. This doesn't work!
+--well it works, but its not the right solution to this challenge
+SELECT es.emp_name
+	,es.salary
+	,es.salary_start_dt
+	,LAG(es.salary,1)OVER(PARTITION BY es.emp_name ORDER BY es.salary_start_dt) as prev_sal
+FROM sql_training.dbo.employees_salaries es
+INNER JOIN (
+	SELECT emp_name,MAX(salary_start_dt) as max_date
+	FROM sql_training.dbo.employees_salaries
+	GROUP BY emp_name
+	) ld ON ld.emp_name = es.emp_name AND ld.max_date = es.salary_start_dt
+ORDER BY es.emp_name,es.salary_start_dt desc
+
+
+
+/*  Show me a list of employees and their current / latest job role
+(including start and end dates) AND their previous job role (including 
+start and end dates) if they have one.
+*/
+
+WITH
+CTE_jobs as (
+	SELECT e.employee_number
+		,e.surname
+		,j.job_title
+		,jh.start_date as jh_start
+		,jh.end_date
+		,DENSE_RANK()OVER(PARTITION BY e.employee_number ORDER BY jh.start_date) as jh_start_rank
+	FROM employees e
+	INNER JOIN job_history jh on jh.person_id = e.person_id
+	INNER JOIN jobs j ON j.job_id = jh.job_id
+	)
+
+SELECT j.employee_number
+	,j.job_title
+	,j.jh_start
+	,j.end_date as jh_end
+	,jp.job_title as prev_job
+	,jp.jh_start as prev_job_start
+	,jp.end_date as prev_job_end
+FROM CTE_jobs j
+LEFT JOIN CTE_jobs jp ON jp.employee_number = j.employee_number AND jp.jh_start_rank = 2--A LEFT JOIN with a WHERE clause CAN BE the same as an INNER JOIN. Be careful
+WHERE j.jh_start_rank = 1
+ORDER BY j.employee_number
+
+

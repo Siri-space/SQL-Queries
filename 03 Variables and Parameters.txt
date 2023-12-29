@@ -1,0 +1,213 @@
+use sql_hr
+
+DECLARE @surname_search VARCHAR(30)
+SET @surname_search = 'Jones'
+
+SELECT * 
+FROM employees
+WHERE surname = @surname_search
+
+---------------------------------------------------------------
+DECLARE @report_date DATE
+SET @report_date = '2013-01-01'
+
+SELECT e.employee_number as "Employee Number"
+	,e.surname + ', ' + e.forename as "Full Name"
+	,CONVERT(VARCHAR(10),e.start_date,103) as "Employee Start Date"
+	,CONVERT(VARCHAR(10),e.end_date,103) as "Employee End Date"
+	,FLOOR(DATEDIFF(DAY,e.start_date,@report_date)/365.25) as "Length of Service"
+	,j.job_title as "Current Job Role"
+	,CONVERT(VARCHAR(10),jh.start_date,103) as "Job Role Start Date"
+	,CONVERT(VARCHAR(10),jh.end_date,103) as "Job Role End Date"
+	,LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5 as "Weekly Hours Worked"
+	,pe.pay_type
+	,pe.pay_value
+	,CAST(CASE 
+		WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 52.14
+		WHEN pe.pay_type = 'hourly paid' THEN (LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * pe.pay_value
+		END  as NUMERIC(6,2)) as "Weekly Pay"
+FROM employees e
+----------------------------
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+----------------------------
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+						AND pe.job_id = jh.job_id
+----------------------------
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+----------------------------
+WHERE e.start_date <= @report_date
+AND COALESCE(e.end_date,@report_date) >= @report_date
+----------------------------
+AND jh.start_date <= @report_date
+AND COALESCE(jh.end_date,@report_date) >= @report_date
+----------------------------
+AND ewp.wp_start_date <= @report_date
+AND COALESCE(ewp.wp_end_date,@report_date) >= @report_date
+----------------------------
+AND pe.start_date <= @report_date
+AND COALESCE(pe.end_date,@report_date) >= @report_date
+----------------------------
+ORDER BY e.start_date
+
+----------------------------------------------------------------------------
+--Total Monthly Wage Cost	Plus 10 % Increase
+--169773.53					186750.88
+
+DECLARE @perc_increase NUMERIC(4,2) = 1.25
+
+SELECT total_monthly as "Total Monthly Wage Bill"
+	,@perc_increase as "percent Increase"
+	,total_monthly * ((@perc_increase/100)) as "Value Increase"
+	,total_monthly * ((@perc_increase/100)+1) as "New Wage Bill"
+FROM (
+	SELECT 
+		CAST(SUM(CASE	
+			WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 12
+			WHEN pe.pay_type = 'hourly paid' THEN (((LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * 52.14)/12) * pe.pay_value
+			END) as NUMERIC(8,2)) as total_monthly
+	FROM employees e
+	----------------------------
+	INNER JOIN job_history jh ON jh.person_id = e.person_id
+	----------------------------
+	INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+							AND pe.job_id = jh.job_id
+	----------------------------
+	INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+	INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+	----------------------------
+	WHERE e.start_date <= GETDATE()							--		needs to be true
+	AND COALESCE(e.end_date,GETDATE()) >= GETDATE()			--		needs to be true
+	----------------------------
+	AND jh.start_date <= GETDATE()
+	AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+	----------------------------
+	AND ewp.wp_start_date <= GETDATE()
+	AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+	----------------------------
+	AND pe.start_date <= GETDATE()
+	AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()
+	) dt
+
+---------------------------------------------
+
+DECLARE @warehouse TABLE (
+	person_id INT,
+	job_title VARCHAR(50)
+)
+
+INSERT INTO @warehouse
+SELECT e.person_id,j.job_title
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+WHERE j.job_title LIKE '%warehouse%'
+
+INSERT INTO @warehouse
+SELECT e.person_id,j.job_title
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+WHERE j.job_title LIKE '%forklift%'
+
+DELETE FROM @warehouse WHERE job_title = 'Warehouse Team Leader'
+
+SELECT *
+FROM @warehouse w
+INNER JOIN employees e ON e.person_id = w.person_id
+
+--------------------------------------------------------------------------
+--------------------------------------------------------------------------
+
+/*1.
+Create a query that outputs details from the employees table where either 
+the forename or surname matches the exact value entered into a variable
+*/
+
+DECLARE @name_search VARCHAR(30)
+SET @name_search = 'George'
+
+SELECT * 
+FROM employees
+WHERE surname = @name_search
+OR forename = @name_search
+
+
+/*2.
+Amend the above query (or create a copy) that outputs details from the 
+employees table where the forename is a partial match against the value 
+entered into a variable
+*/
+
+DECLARE @partial_name_search VARCHAR(30)
+SET @partial_name_search = 'ste'
+
+SELECT * 
+FROM employees
+WHERE forename LIKE '%' + @partial_name_search + '%'
+
+
+
+/*3.
+Amend the deliveries, sales and in-stock query from the previous lesson, 
+so we’re looking at stock position as at a specific date.
+*/
+
+use sql_sales
+
+DECLARE @stock_date DATE = '2022-03-16'
+
+IF OBJECT_ID('tempdb..#products') IS NOT NULL DROP TABLE #products
+SELECT p.product_id
+	,p.product_name
+	,pg.product_group_desc
+	,p.current_supplier_price
+	,p.current_retail_price
+INTO #products
+FROM products p
+INNER JOIN product_groups pg ON pg.product_group_id = p.product_group_id
+
+IF OBJECT_ID('tempdb..#deliveries') IS NOT NULL DROP TABLE #deliveries
+SELECT product_id,SUM(usable_quantity) as qty_del
+INTO #deliveries
+FROM deliveries
+WHERE delivery_date <= @stock_date
+GROUP BY product_id
+
+IF OBJECT_ID('tempdb..#sales') IS NOT NULL DROP TABLE #sales
+SELECT product_id,SUM(quantity) as qty_sold
+INTO #sales
+FROM orders
+WHERE order_date <= @stock_date
+GROUP BY product_id
+
+SELECT p.product_id
+	,p.product_name
+	,p.product_group_desc
+	,d.qty_del
+	,s.qty_sold
+	,d.qty_del - s.qty_sold as in_stock
+FROM #products p
+INNER JOIN #deliveries d ON d.product_id = p.product_id
+INNER JOIN #sales s ON s.product_id = p.product_id
+
+
+/*3a.
+For additional Brownie points, work out the total ‘IN STOCK VALUE’ for 
+each product, based on the sales price and the supplier cost (two 
+additional columns)
+*/
+
+
+SELECT p.product_id
+	,p.product_name
+	,p.product_group_desc
+	,d.qty_del
+	,s.qty_sold
+	,d.qty_del - s.qty_sold as in_stock
+	,(d.qty_del - s.qty_sold) * current_supplier_price as total_stock_value
+	,(d.qty_del - s.qty_sold) * current_retail_price as total_retail_value
+FROM #products p
+INNER JOIN #deliveries d ON d.product_id = p.product_id
+INNER JOIN #sales s ON s.product_id = p.product_id

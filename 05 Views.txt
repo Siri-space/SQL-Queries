@@ -1,0 +1,153 @@
+
+CREATE VIEW vw_current_employee_details  AS
+
+SELECT e.employee_number as "Employee Number"
+	,e.surname + ', ' + e.forename as "Full Name"
+	,CONVERT(VARCHAR(10),e.start_date,103) as "Employee Start Date"
+	,CONVERT(VARCHAR(10),e.end_date,103) as "Employee End Date"
+	,FLOOR(DATEDIFF(DAY,e.start_date,GETDATE())/365.25) as "Length of Service"
+	,j.job_title as "Current Job Role"
+	,CONVERT(VARCHAR(10),jh.start_date,103) as "Job Role Start Date"
+	,CONVERT(VARCHAR(10),jh.end_date,103) as "Job Role End Date"
+	,LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5 as "Weekly Hours Worked"
+	,pe.pay_type
+	,pe.pay_value
+	,CAST(CASE 
+		WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 52.14
+		WHEN pe.pay_type = 'hourly paid' THEN (LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * pe.pay_value
+		END  as NUMERIC(6,2)) as "Weekly Pay"
+	,e.person_id
+FROM employees e
+----------------------------
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+----------------------------
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+						AND pe.job_id = jh.job_id
+----------------------------
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+----------------------------
+WHERE e.start_date <= GETDATE()
+AND COALESCE(e.end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND ewp.wp_start_date <= GETDATE()
+AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND pe.start_date <= GETDATE()
+AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()
+-----------------------------
+--ORDER BY e.person_id
+
+
+SELECT * 
+FROM vw_current_employee_details
+ORDER BY [Weekly Hours Worked]
+
+-------------------------------------------------------------
+
+ 
+CREATE VIEW vw_summary_of_emps_in_role  AS
+
+SELECT j.job_title as "Current Job Role"
+	,COUNT(*) as "Emps in Role"
+FROM employees e
+----------------------------
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+----------------------------
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+						AND pe.job_id = jh.job_id
+----------------------------
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+GROUP BY j.job_title
+
+SELECT * FROM vw_summary_of_emps_in_role
+
+
+-------------------------------------------------------------
+
+UPDATE vw_current_employee_details
+SET [Employee Number] = 'E12266'
+WHERE [Full Name] = 'Baldwin, Rebecca'
+
+SELECT * 
+FROM vw_current_employee_details
+
+SELECT * 
+FROM employees
+
+
+SELECT * FROM vw_summary_of_emps_in_role
+
+UPDATE vw_summary_of_emps_in_role
+SET "Current Job Role" = 'Office'
+WHERE "Current Job Role" = 'Back Office'
+
+-------------------------------------------------
+
+/*	1. Create a view from the HR Database for returning the following fields
+Employee number, job title, work pattern description, then a Y/N column for 
+each day of the week to say if they work that day or not
+All current data only – current emps, current job etc.
+*/
+
+
+CREATE VIEW vw_emps_work_pattern_brkdown
+AS
+SELECT e.employee_number
+	,j.job_title
+	,wp.work_pattern_desc
+	,SUBSTRING(wp.pattern_mask,1,1) as mon_yn
+	,SUBSTRING(wp.pattern_mask,2,1) as tue_yn
+	,SUBSTRING(wp.pattern_mask,3,1) as wed_yn
+	,SUBSTRING(wp.pattern_mask,4,1) as thu_yn
+	,SUBSTRING(wp.pattern_mask,5,1) as fri_yn
+	,SUBSTRING(wp.pattern_mask,6,1) as sat_yn
+	,SUBSTRING(wp.pattern_mask,7,1) as sun_yn
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+WHERE e.start_date <= GETDATE()
+AND COALESCE(e.end_date,GETDATE()) >= GETDATE()
+AND jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+AND ewp.wp_start_date <= GETDATE()
+AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+GO
+
+
+/* 2. Amend that view to add employment start and end dates, plus any other fields you feel might be useful
+*/
+
+ALTER VIEW vw_emps_work_pattern_brkdown
+AS
+SELECT e.employee_number
+	,e.start_date as emp_start_dt
+	,e.end_date as emp_end_dt
+	,j.job_title
+	,wp.work_pattern_desc
+	,SUBSTRING(wp.pattern_mask,1,1) as mon_yn
+	,SUBSTRING(wp.pattern_mask,2,1) as tue_yn
+	,SUBSTRING(wp.pattern_mask,3,1) as wed_yn
+	,SUBSTRING(wp.pattern_mask,4,1) as thu_yn
+	,SUBSTRING(wp.pattern_mask,5,1) as fri_yn
+	,SUBSTRING(wp.pattern_mask,6,1) as sat_yn
+	,SUBSTRING(wp.pattern_mask,7,1) as sun_yn
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+WHERE e.start_date <= GETDATE()
+AND COALESCE(e.end_date,GETDATE()) >= GETDATE()
+AND jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+AND ewp.wp_start_date <= GETDATE()
+AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()

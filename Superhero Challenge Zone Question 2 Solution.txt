@@ -1,0 +1,27 @@
+USE sql_sales;
+
+/*	2. List all products (product id and Product name) then three columns to 
+	show the customer names and order dates of the last three purchases of 
+	each product
+*/
+
+WITH 
+cte_ord as (
+	SELECT o.product_id
+		,o.order_date
+		,c.forename + ' ' + c.surname + ' (' + CONVERT(VARCHAR(10),o.order_date,103) + ')' as cust_date
+		,DENSE_RANK()OVER(PARTITION BY o.product_id ORDER BY o.order_date desc) as sales_rank
+	FROM orders o
+	INNER JOIN customers c ON c.customer_id = o.customer_id
+)
+
+SELECT p.product_id
+	,p.product_name
+	,o1.cust_date as cust_1
+	,o2.cust_date as cust_2
+	,o3.cust_date as cust_3
+FROM products p
+LEFT JOIN cte_ord o1 ON o1.product_id = p.product_id AND o1.sales_rank = 1
+LEFT JOIN cte_ord o2 ON o2.product_id = p.product_id AND o2.sales_rank = 2
+LEFT JOIN cte_ord o3 ON o3.product_id = p.product_id AND o3.sales_rank = 3
+ORDER BY p.product_id

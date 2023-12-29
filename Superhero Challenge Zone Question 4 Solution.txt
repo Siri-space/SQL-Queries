@@ -1,0 +1,62 @@
+use sql_sales
+GO
+
+/*	3. Add a new column to the users table for reports_to_user_id (INTEGER, nullable) and 
+	manually update the values to represent the following:
+
+	The General Manager of the business is Joe Sanderson, and his deputies are Jen Stephens 
+	and Jo Regan. Half the remaining sales team report into Jen and the other half to Jo. 
+	You decide how that is distributed.
+
+	Then write a query to output a hierarchy level using a recursive CTE
+*/
+
+--ALTER TABLE users ADD reports_to_user_id INT NULL
+
+--UPDATE u
+--SET u.reports_to_user_id = 
+--	CASE 
+--		WHEN user_id = 4 THEN NULL
+--		WHEN user_id IN (2,3) THEN 4
+--		WHEN user_id IN (5,6,7,8,9) THEN 2
+--		WHEN user_id IN (10,11,12,13) THEN 3
+--		END
+--FROM users u
+
+WITH
+cte_hier (user_id,forename,surname,system_username,auth_level_id,reports_to_user_id,hierarchy_level)
+AS (
+	SELECT user_id
+		,forename
+		,surname
+		,system_username
+		,auth_level_id
+		,reports_to_user_id
+		,0 as hierarchy_level
+	FROM users
+	WHERE reports_to_user_id IS NULL
+	AND system_username <> 'Internet'
+
+	UNION ALL
+
+	SELECT u.user_id
+		,u.forename
+		,u.surname
+		,u.system_username
+		,u.auth_level_id
+		,u.reports_to_user_id
+		,hierarchy_level + 1
+	FROM users u
+	INNER JOIN cte_hier h ON h.user_id = u.reports_to_user_id
+	)
+
+SELECT h.user_id
+	,h.forename + ' ' + h.surname as username
+	,h.system_username
+	,h.auth_level_id
+	,h.reports_to_user_id
+	,h.hierarchy_level
+	------------------
+	,u.forename + ' ' + u.surname as manager_name
+FROM cte_hier h
+LEFT JOIN users u ON u.user_id = h.reports_to_user_id

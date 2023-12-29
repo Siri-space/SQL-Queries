@@ -1,0 +1,28 @@
+use sql_sales;
+
+/*	1. Using CTEs, temp tables, derived tables or subqueries as you see fit,
+	List all the products sold where the payment method has been by payment card or 
+	mobile device (i.e. NOT cash, voucher or PayPal). Fields to display are product id, 
+	product name and quantity sold. Order the data with the highest selling products 
+	at the top of the list
+
+	Add a column which will output TOP 5 if the product has one of the top 5 highest sales volumes.
+*/
+WITH
+cte_pay_meth as (
+	SELECT payment_method_id
+	FROM payment_methods
+	WHERE payment_method_desc LIKE '%Card'
+	OR payment_method_desc LIKE '%Pay'
+)
+
+SELECT p.product_id
+	,p.product_name
+	,SUM(o.quantity) as qty_sold
+	,CASE WHEN DENSE_RANK()OVER(ORDER BY SUM(o.quantity) DESC) <= 5 THEN 'TOP 5' ELSE '' END as top_5
+FROM orders o
+INNER JOIN cte_pay_meth pm ON pm.payment_method_id = o.payment_method_id
+INNER JOIN products p ON p.product_id = o.product_id
+GROUP BY p.product_id
+	,p.product_name
+ORDER BY qty_sold DESC

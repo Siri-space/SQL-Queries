@@ -1,0 +1,120 @@
+use sql_training
+
+--SQL Server gets it wrong!
+SELECT 5 / 2
+
+--implicit conversion
+SELECT 5. / 2
+
+--explicit conv
+SELECT 5 / cast(2 as float)
+
+-------------------------------------------
+
+SELECT salesman
+	,sales_target
+	,sales_achieved
+	---------------------------------------
+	,sales_achieved - sales_target as sales_variance
+	,(sales_achieved / sales_target)*100 as sales_variance
+	---------------------------------------
+	,ROUND((sales_achieved / sales_target)*100,2) as sales_variance_rnd
+	,FLOOR((sales_achieved / sales_target)*100) as sales_variance_floor
+	,CEILING((sales_achieved / sales_target)*100) as sales_variance_ceil
+	---------------------------------------
+	,CAST((sales_achieved / sales_target)*100 as NUMERIC(5,2)) as sales_var_numeric
+	,CAST((sales_achieved / sales_target)*100 as FLOAT) as sales_var_float
+FROM sales_bonus
+WHERE sales_target <> 0
+
+
+---------------------------------------------------
+
+SELECT salesman
+	,sales_target
+	,sales_achieved
+	---------------------------------------
+	,sales_achieved - sales_target as sales_variance
+	,CASE
+		WHEN sales_target = 0 THEN NULL -- it is a BUSINESS decision how to handle this situation
+		ELSE (sales_achieved / sales_target)*100 
+		END as sales_variance
+FROM sales_bonus
+
+-----------------------------------------------------------------
+--OPERATORS
+
+-- + - * /
+
+-----------------------------------------------------------------
+
+--BODMAS stands for Brackets, Orders, (Division, Multiplication), (Addition, Subtraction). (Orders = squared, cubed, square root etc.)
+
+SELECT 10 - 3 + 2
+SELECT 10 - (3 + 2)
+
+SELECT 20 / 5 - 1 
+SELECT 20 / (5 - 1)
+
+
+-----------------------------------------------------------------
+--some cool functions
+
+--MOD / MODULO
+SELECT 5 % 2
+SELECT 27 % 5
+
+SELECT person_id
+	,CASE WHEN person_id % 2 = 1 THEN 'lightgrey' ELSE 'transparent' END as bg_colour
+	,forename
+	,surname
+FROM sql_hr.dbo.employees
+
+
+--SQRT
+SELECT SQRT(25)
+SELECT SQRT(16)
+
+SELECT 4*4
+
+
+------------------------------------------------------
+/*1. Looking at the sales_bonus table, calculate the overall sales achieved as a percentage of sales target
+i.e. NOT grouped by sales person, so return ONE row
+*/
+
+SELECT CAST((SUM(sales_achieved)/SUM(sales_target))*100 as NUMERIC(5,1)) as team_sales_var
+FROM sales_bonus
+
+/*2. Show the lowest and highest NON ZERO sales achieved figures, and the difference between the two
+*/
+
+SELECT MAX(sales_achieved) as highest
+	,MIN(CASE WHEN sales_achieved > 0 THEN sales_achieved END) as lowest
+	,MAX(sales_achieved)-MIN(CASE WHEN sales_achieved > 0 THEN sales_achieved END) as difference
+FROM sales_bonus
+
+
+/*3. Let’s calculate commission using these rules:
+A salesperson will always receive 10% of sales revenue.
+If they hit their sales target, they will instead receive 15% of all their sales revenue up to the target amount, PLUS 20% of sales above their target amount, plus a cash bonus of £100
+Display the data whichever way you see fit
+*/
+
+SELECT salesman
+	,sales_target
+	,sales_achieved
+	----------------
+	,CASE WHEN sales_target > 0 AND sales_achieved >= sales_target THEN 'Hit Target' END as target_flag
+	,CASE 
+		WHEN sales_target > 0 AND sales_achieved >= sales_target THEN sales_target * 0.15	--	if a sales person hits target, they get 15% of sales UP TO their target amount
+		ELSE sales_achieved * 0.1 --otherwise 10% on all sales
+		END as [10_15_pc_commission]
+	,CASE 
+		WHEN sales_target > 0 AND sales_achieved >= sales_target THEN (sales_achieved - sales_target) * 0.2	--	successful sales people get 20% of sales ABOVE target
+		ELSE 0 
+		END AS [20_pc_commission]
+	,CASE 
+		WHEN sales_target > 0 AND sales_achieved >= sales_target THEN 100	--	successful sales people get a £100 cash bonus
+		ELSE 0 END AS cash_bonus
+FROM sales_bonus

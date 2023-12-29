@@ -1,0 +1,165 @@
+use sql_hr
+--string handling
+
+SELECT employee_number
+	,SUBSTRING(employee_number,1,1) as first_char
+	,SUBSTRING(employee_number,1,2) as first_2_chars
+	,SUBSTRING(employee_number,2,6) as rest_of_string
+	-------------------
+	,LEFT(employee_number,1) as left_str
+	,RIGHT(employee_number,1) as right_str
+	-------------------
+	,LEN(employee_number) as len_str
+	,RIGHT(employee_number,LEN(employee_number)-1) as right_str_using_len
+	--------------------------------------
+	,forename
+	,UPPER(forename) as upper_name
+	,LOWER(forename) as lower_name
+	--------------------------------------
+	,REPLACE(employee_number,'E','XX') as repl_E_XX
+	,REPLACE(employee_number,'0','zero') as repl_0_zero
+FROM employees
+
+--------------------------------------------------------
+--more functions
+use sql_training
+
+SELECT salesman_name
+	,LTRIM(salesman_name) as leading_spaces
+	,RTRIM(salesman_name) as trailing_spaces
+	,TRIM(salesman_name) as trail_and_lead_spaces
+	---------------------------------------------
+	,REPLACE(salesman_name,'  ',' ') as repl_spaces
+	,REPLACE(salesman_name,'&','and') as repl_ampersand
+	---------------------------------------------
+	,REPLACE(REPLACE(REPLACE(TRIM(salesman_name),'  ',' '),'&','and'),'.','') as cleansed_column
+FROM company_locations
+
+-- combining functions
+SELECT company_string
+	,CHARINDEX('|',company_string,0) as pipe_pos
+	,LEFT(company_string,CHARINDEX('|',company_string,0)-1) as country
+	,SUBSTRING(company_string,CHARINDEX('|',company_string,0)+1,20) as region
+	,REPLACE(SUBSTRING(company_string,CHARINDEX('|',company_string,0)+1,20),'.','') as region_no_dot
+FROM company_locations
+
+SELECT company_string
+	,REVERSE(company_string) as revs
+FROM company_locations
+
+-------------------------------------------------------------------------------------
+--concatentaion
+
+use sql_hr
+
+SELECT title
+	,forename
+	,surname
+	,title + ' ' + forename + ' ' + surname as full_name
+	,birth_date
+	--explicit conversion
+	,surname + CAST(birth_date as VARCHAR) as surname_date
+	,surname + CAST(1 as VARCHAR) as surname_plus_1
+	--------
+	--,surname + 1		--ERROR: Conversion failed when converting the varchar value 'Appleby' to data type int.
+FROM employees
+
+--implicit conversion
+SELECT '1' + 2
+SELECT '1' + cast(2 as varchar)
+
+SELECT GETDATE() as the_now
+	,CAST(GETDATE() as varchar)
+
+SELECT CONVERT(VARCHAR(20),GETDATE(),100)
+SELECT CONVERT(VARCHAR(20),GETDATE(),101)
+SELECT CONVERT(VARCHAR(20),GETDATE(),102)
+SELECT CONVERT(VARCHAR(20),GETDATE(),103)--DD/MM/YYYY
+SELECT CONVERT(VARCHAR(20),GETDATE(),104)
+SELECT CONVERT(VARCHAR(20),GETDATE(),105)
+SELECT CONVERT(VARCHAR(20),GETDATE(),106)
+SELECT CONVERT(VARCHAR(20),GETDATE(),107)
+SELECT CONVERT(VARCHAR(20),GETDATE(),108)--TIME: HH:MM:SS
+SELECT CONVERT(VARCHAR(20),GETDATE(),109)
+SELECT CONVERT(VARCHAR(20),GETDATE(),110)
+SELECT CONVERT(VARCHAR(20),GETDATE(),111)
+SELECT CONVERT(VARCHAR(8),GETDATE(),112)--YYYYMMDD
+SELECT CONVERT(VARCHAR(20),GETDATE(),113)
+SELECT CONVERT(VARCHAR(20),GETDATE(),114)
+
+SELECT FORMAT(GETDATE(),'yyyy/MM/dd HH:mm.ss.ms')
+
+------------------------------------------------------------
+
+SELECT CAST(22.5 / 1.1 as NUMERIC(8,6))
+SELECT CAST(22.5 / 1.1 as NUMERIC(8,5))
+SELECT CAST(22.5 / 1.1 as NUMERIC(8,1))
+SELECT CAST(22.5 / 1.1 as NUMERIC(3,1))
+
+
+SELECT CAST(22.5 / 1.1 as FLOAT)
+SELECT CAST(22 / 11 as FLOAT)
+
+SELECT CAST('false' as bit) -- 0
+SELECT CAST('true' as bit)	-- 1
+SELECT CAST(5 as bit)		-- 1
+
+
+
+SELECT CAST(GETDATE() as DATE)		--	2022-11-09
+SELECT CAST(GETDATE() as TIME)		--	07:28:36.6400000
+SELECT CAST(GETDATE() as DATETIME)	--	2022-11-09 07:28:39.900
+
+GO
+
+--------------------------------------------------------------------------------------
+USE sql_training
+/*
+1 USING THE sql_training.dbo.employee_names table
+Create a single field to hold the following:
+Employee Number, but instead of an E, they begin Bx
+The forename and surname combined, converted to proper case and in brackets (with spaces)
+The year that the employee began their employment
+e.g. Bx12345 (John Smith) 2018
+
+2.  USING THE sql_training.dbo.employee_names table
+Add a column to your solution to the above question to return ONLY the second half of employees’ postcodes
+e.g. CR8 2JG, just return the 2JG part
+Hint: for this you’ll need to use CHARINDEX and SUBSTRING
+*/
+
+
+SELECT employee_number
+	,emp_forename
+	,emp_surname
+	,start_date
+	,postcode
+	,REPLACE(employee_number,'E','Bx') 
+		+ ' ('
+		+ UPPER(LEFT(emp_forename,1))
+		+ LOWER(SUBSTRING(emp_forename,2,20))
+		+ ' '
+		+ UPPER(LEFT(emp_surname,1))
+		+ LOWER(SUBSTRING(emp_surname,2,20))
+		+ ') '
+--		+ DATENAME(YEAR,start_date)
+--		+ CONVERT(VARCHAR(4),start_date),112)
+		+ FORMAT(start_date),'yyyy') as output_string
+	,SUBSTRING(postcode,CHARINDEX(' ',postcode,0)+1,4) as postcode_part_2
+FROM employee_names
+
+
+/*
+
+3. USING THE sql_training.dbo.employee_names table
+Return the last character of the employee forename in upper case format. 
+Try to think of at least two different ways to achieve this.
+
+*/
+
+
+SELECT emp_forename
+	,UPPER(RIGHT(emp_forename,1))
+	,UPPER(LEFT(REVERSE(emp_forename),1))
+	,UPPER(SUBSTRING(emp_forename,LEN(emp_forename),1))
+FROM employee_names

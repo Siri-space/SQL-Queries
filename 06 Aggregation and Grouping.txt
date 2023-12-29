@@ -1,0 +1,121 @@
+use sql_training
+
+
+--population by country & continent for all countries. accurate 2021/22
+SELECT *
+FROM global_population
+ORDER BY population_mil desc
+
+
+-- totals for the entire dataset
+SELECT SUM(population_mil) as sum_pop
+	,MIN(population_mil) as min_pop
+	,MAX(population_mil) as max_pop
+	,AVG(population_mil) as avg_pop	-- mean average
+	,COUNT(population_mil) as ct_pop
+FROM global_population
+
+
+-- totals by continent
+SELECT continent
+	,SUM(population_mil) as sum_pop
+	,MIN(population_mil) as min_pop
+	,MAX(population_mil) as max_pop
+	,AVG(population_mil) as avg_pop	-- mean average
+	,COUNT(population_mil) as ct_pop
+FROM global_population
+GROUP BY continent
+
+--population by country in S America only
+SELECT *
+FROM global_population
+WHERE continent = 'South America'
+
+
+--FILTERS in grouped queries
+--the diff between WHERE and HAVING
+SELECT continent
+	,SUM(population_mil) as sum_pop
+	,MIN(population_mil) as min_pop
+	,MAX(population_mil) as max_pop
+	,AVG(population_mil) as avg_pop	-- mean average
+	,COUNT(population_mil) as ct_pop
+FROM global_population
+--WHERE continent = 'South America'
+GROUP BY continent
+HAVING AVG(population_mil) > 20
+ORDER BY avg_pop
+
+/*
+SQL Order of Operations
+1. FROM and JOINS
+2. WHERE
+3. GROUP BY
+4. HAVING
+5. WINDOW FUNCTIONS
+6. SELECT
+7. DISTINCT 		--	(= 'unique')
+8. UNION			--	for combining datasets
+9. ORDER BY		
+10. TOP n, LIMIT, OFFSET
+*/
+
+SELECT DISTINCT continent
+FROM global_population
+
+SELECT TOP 10 country,population_mil
+FROM global_population
+ORDER BY population_mil DESC
+
+
+--------------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------
+use sql_hr
+
+/*
+1. Using the sql_hr database, calculate the average hourly rate by job_title for employees. 
+Note that managers and team leaders are paid annually, so you’ll need to filter these 
+out as we’re not interested in salaried employees.
+*/
+
+SELECT j.job_title as "Job Title"
+	,AVG(pe.pay_value) as "Average Rate"
+	----------------------------------------
+	--2. Also add in the minimum and maximum rates to the aggregation
+	,MIN(pe.pay_value) as "Lowest Rate"
+	,MAX(pe.pay_value) as "Highest Rate"
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id AND pe.job_id = jh.job_id
+WHERE pe.pay_type = 'hourly paid'
+GROUP BY j.job_title
+
+
+--3. From the sales table in the sql_training database, show sales order quantities by year.
+use sql_training
+
+SELECT DATENAME(YEAR,order_date) as order_year
+	,SUM(quantity) as sum_ord
+	,MIN(quantity) as min_ord
+	,MAX(quantity) as max_ord
+	,AVG(quantity) as avg_ord
+	,COUNT(quantity) as ct_ord
+FROM sales
+GROUP BY DATENAME(YEAR,order_date)
+
+
+--4. Change the summary field from the previous question to be product_name instead 
+--of year and add a filter so it shows data by product for 2017 only. 
+
+SELECT product_name
+	,SUM(quantity) as sum_ord
+	,MIN(quantity) as min_ord
+	,MAX(quantity) as max_ord
+	,AVG(quantity) as avg_ord
+	,COUNT(quantity) as ct_ord
+FROM sales
+WHERE DATENAME(YEAR,order_date) = '2017'
+GROUP BY product_name
+HAVING SUM(quantity) >= 7
+

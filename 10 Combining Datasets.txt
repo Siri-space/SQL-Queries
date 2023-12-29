@@ -1,0 +1,148 @@
+use sql_hr
+
+--EXEC usp_reset_all_dates
+--EXEC usp_force_update
+
+
+SELECT person_id
+	,forename
+	,surname
+FROM employees
+WHERE surname = 'Smith'
+
+--UNION			--	shows all records from both UNIONISED datasets, but with DUPLICATES REMOVED
+--UNION ALL		--	shows all records from both UNIONISED datasets, INCLUDING DUPLICATES
+--EXCEPT		--	shows all records from the first dataset, but NOT INCLUDING records from the second dataset
+--INTERSECT		--	shows all records from the first dataset, but ONLY IF they also appear in the second dataset
+
+SELECT person_id
+	,forename
+	,surname
+FROM employees
+WHERE forename = 'Michael'
+
+
+
+--------------------------------------------------
+--THE RULES
+--All queries combined using a UNION, INTERSECT or EXCEPT operator must have an equal number of expressions (columns)
+
+SELECT person_id as pers_id
+	,forename as f_name
+	,surname as sname
+	,birth_date
+FROM employees
+WHERE surname = 'Smith'
+
+UNION
+
+SELECT person_id
+	,forename as f_name
+	,surname as sname
+	,birth_date
+FROM employees
+WHERE forename = 'Michael'
+
+
+
+------------------------------------------------------------------------------------------------
+
+--challenges
+
+/*
+1. Using the hr database and the employees table, create a dataset to 
+show all starters and all leavers in the previous full calendar month
+Fields should be full name (first name and surname combined), 
+start date and end date 
+Order by start date then end date
+*/
+
+SELECT forename + ' ' + surname as full_name
+	,start_date
+	,end_date
+FROM employees
+WHERE start_date BETWEEN DATEADD(MONTH,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+AND DATEADD(DAY,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+
+UNION
+
+SELECT forename + ' ' + surname as full_name
+	,start_date
+	,end_date
+FROM employees
+WHERE end_date BETWEEN DATEADD(MONTH,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+AND DATEADD(DAY,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+
+ORDER BY start_date,end_date
+
+/*
+2. Copy the above query and amend to only show starters in the previous full 
+month that were still with the company as of the last day of last month 
+(i.e. filter out anyone who started and left in the same month). 
+*/
+
+SELECT forename + ' ' + surname as full_name
+	,start_date
+	,end_date
+FROM employees
+WHERE start_date BETWEEN DATEADD(MONTH,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+AND DATEADD(DAY,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+
+EXCEPT
+
+SELECT forename + ' ' + surname as full_name
+	,start_date
+	,end_date
+FROM employees
+WHERE end_date BETWEEN DATEADD(MONTH,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+AND DATEADD(DAY,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+
+ORDER BY start_date,end_date
+
+
+/*
+3. Using the UNION, UNION ALL, EXCEPT or INTERSECT commands, generate a list 
+of all the Michaels and all the Smiths ensuring there is no duplication, 
+then filter out any that were born in the 1990s. 
+*/
+
+SELECT person_id as pers_id
+	,forename as f_name
+	,surname as sname
+	,birth_date
+FROM employees
+WHERE surname = 'Smith'
+
+UNION
+
+SELECT person_id
+	,forename as f_name
+	,surname as sname
+	,birth_date
+FROM employees
+WHERE forename = 'Michael'
+
+EXCEPT
+
+SELECT person_id
+	,forename as f_name
+	,surname as sname
+	,birth_date
+FROM employees
+WHERE CONVERT(VARCHAR(3),birth_date,112) = '199'
+
+
+
+
+----------------------------------------------------------------------
+--an alternative way to do that last statement
+--less coding, easier to read and understand
+
+SELECT person_id
+	,forename as f_name
+	,surname as sname
+	,birth_date
+FROM employees
+WHERE (
+	forename = 'Michael' OR surname = 'Smith')
+AND CONVERT(VARCHAR(3),birth_date,112) <> '199'

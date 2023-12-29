@@ -1,0 +1,134 @@
+--Table Join
+
+use sql_sales
+
+
+--	INNER JOIN will show all records from the first table (to the left of the JOIN)
+--	BUT ONLY where there are matching records in the JOINED table
+--	JOIN = INNER JOIN. 
+--	Never use 'JOIN' on its own, always use the full name: INNER JOIN
+--	INNER JOINs are better for performance
+SELECT *
+FROM customers c		
+INNER JOIN customer_addresses ca ON ca.customer_id = c.customer_id
+WHERE c.surname = 'Brown'
+
+--	LEFT JOIN will show all records from the first table (to the left of the JOIN)
+--	even if there are no matching records in the JOINED table
+--	LEFT JOIN is the 'safe bet' because you'll never miss records/rows
+SELECT *
+FROM customers c
+LEFT JOIN customer_addresses ca ON ca.customer_id = c.customer_id
+WHERE c.surname = 'Brown'
+
+---------------
+
+use sql_training
+--	RIGHT JOIN will show all records from the JOINED table
+--	even if there are no matching records in the first table (to the left of the JOIN)
+--	Never use a RIGHT JOIN
+SELECT *
+FROM customers_addresses_rj ca 
+RIGHT JOIN customers_rj c ON ca.customer_id = c.customer_id
+
+--	if you see this (above), switch it all about to use a left join
+--	swap the tables about
+--	switch to a LEFT JOIN
+SELECT *
+FROM customers_rj c 
+LEFT JOIN customers_addresses_rj ca ON ca.customer_id = c.customer_id
+
+
+
+--	FULL JOIN
+--	a combination of left and right join
+--	shows all records from all tables
+SELECT *
+FROM customers_rj c 
+FULL JOIN customers_addresses_rj ca ON ca.customer_id = c.customer_id
+
+
+--	CROSS JOIN
+--	CARTESIAN PRODUCT 
+--	the set of all possible ordered combinations consisting of one member from each of those sets
+SELECT * 
+FROM cross_join_1
+CROSS JOIN cross_join_2
+
+
+--	SELF JOIN
+SELECT emp.person_id as emp_person_id
+	,emp.full_name as emp_name
+	,man.full_name as manager_name
+FROM emp_managers emp
+LEFT JOIN emp_managers man ON emp.mgr_person_id = man.person_id
+
+--	task for you...
+--	experiment with different join types here
+--	try adding another level to this - another reference to the same table to try to list Carolyn and Andy's manager
+
+----------------------------------------------------------------------------------------------------------
+
+--challenge 1
+
+/*
+1. List all customers on file and their addresses (even if they do not have an address on file)
+Field names required are title, first name, surname, address line 1, address line 2 and postcode
+Order by postcode
+*/
+use sql_sales
+
+SELECT c.title
+	,c.forename
+	,c.surname
+	,ca.address_1
+	,ca.address_2
+	,ca.postcode
+FROM customers c
+LEFT JOIN customer_addresses ca ON ca.customer_id = c.customer_id
+ORDER BY ca.postcode
+
+
+
+--2. Some questions
+--•	Which of the join types could best be described as a safe way to avoid missing any data?
+--LEFT JOIN
+
+--•	Which join type will deliver a Cartesian Product of two data sets
+-- CROSS JOIN
+
+--•	Which join type would you use for joining a table to itself?
+--SELF (LEFT or INNER)
+
+
+/*
+1.	Show all orders along with products and customers. 
+	Fields are order date, product name, customer forename 
+	and surname, customer postcode, sales quantity
+*/
+
+SELECT o.order_date
+	,p.product_name
+	,c.forename
+	,c.surname
+	,o.quantity
+FROM orders o
+INNER JOIN products p ON p.product_id = o.product_id
+INNER JOIN customers c ON c.customer_id = o.customer_id
+
+
+
+/*
+2.	Does every employee in the sql_hr database have 
+	an entry in the emp_security table? Show how 
+	you worked out your answer
+*/
+use sql_hr
+
+--YES, tested by comparing number of records returned with INNER JOIN and LEFT JOIN
+
+SELECT *
+FROM employees e
+INNER JOIN emp_security sec ON e.person_id = sec.person_id
+
+

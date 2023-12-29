@@ -1,0 +1,188 @@
+use sql_hr
+
+--using a derived table to make the previous challenge a bit clearer and less prone to error
+SELECT total_monthly as "Total Monthly Wage Cost"
+	,total_monthly * 1.1 as "Plus 10 % Increase"
+FROM (
+	SELECT 
+		CAST(SUM(CASE	
+			WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 12
+			WHEN pe.pay_type = 'hourly paid' THEN (((LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * 52.14)/12) * pe.pay_value
+			END) as NUMERIC(8,2))  as total_monthly
+	FROM employees e
+	----------------------------
+	INNER JOIN job_history jh ON jh.person_id = e.person_id
+	----------------------------
+	INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+							AND pe.job_id = jh.job_id
+	----------------------------
+	INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+	INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+	----------------------------
+	WHERE e.start_date <= GETDATE()							--		needs to be true
+	AND COALESCE(e.end_date,GETDATE()) >= GETDATE()			--		needs to be true
+	----------------------------
+	AND jh.start_date <= GETDATE()
+	AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+	----------------------------
+	AND ewp.wp_start_date <= GETDATE()
+	AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+	----------------------------
+	AND pe.start_date <= GETDATE()
+	AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()
+	) d
+
+
+------------------------------------------
+--using a derived table to reduce data and improve performance
+--looks and behaves like a regular database table
+--easier to troubleshoot
+SELECT e.*
+	,j.job_title
+FROM (
+	-- employees who have started in last 30 days
+	SELECT person_id, forename, surname, start_date, end_date
+	FROM employees
+	WHERE start_date >= DATEADD(DAY,-30,GETDATE())
+	UNION
+	-- employees who have left in last 30 days
+	SELECT person_id, forename, surname, start_date, end_date
+	FROM employees
+	WHERE end_date >= DATEADD(DAY,-30,GETDATE())
+	) e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+
+
+--this is the equivalent. less coding but potentially slower
+SELECT e.*
+	,j.job_title
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+WHERE e.start_date >= DATEADD(DAY,-30,GETDATE())
+OR e.end_date >= DATEADD(DAY,-30,GETDATE())
+
+-----------------------------------------------------------------------
+--inline query
+--not great for performance, but sometimes is only option
+SELECT e.person_id
+	,e.forename
+	,e.surname
+	,e.birth_date
+	,e.gender
+	,e.start_date
+	,(SELECT MIN(start_date) FROM employees) as first_start_date
+	,CASE WHEN e.start_date = (SELECT MIN(start_date) FROM employees) THEN 'Longest service staff member' END as service_flag
+FROM employees e
+
+
+-----------------------------------------------------------------------
+--subquery (returns ONE column)
+SELECT e.person_id
+	,e.forename
+	,e.surname
+	,e.birth_date
+	,e.gender
+	,e.start_date
+FROM employees e
+WHERE e.start_date = (
+	SELECT MAX(start_date) as max_date
+	FROM employees
+	WHERE start_date <= GETDATE()
+	)
+
+-----------------------------------------------------------------------
+
+use sql_training
+
+--subquery to show all emps with higher than average salary ACROSS THE ORGANISATION
+SELECT *
+FROM emps_and_salaries
+WHERE salary > (
+	SELECT AVG(salary) as avg_sal
+	FROM emps_and_salaries
+	)
+
+--CORRELATED subquery to show all emps with higher than average salary FOR EACH DEPARTMENT
+SELECT *
+FROM emps_and_salaries es
+WHERE es.salary > (
+	SELECT AVG(avs.salary) as avg_sal
+	FROM emps_and_salaries avs
+	WHERE avs.department = es.department
+	)
+
+-----------------------------------------------------------------------
+use sql_hr
+/*
+1.  Look at the marital status table.
+List all employees and their CURRENT marital status
+Note: Some people will not have a marital status in the system. We still want to see them listed as marital status: ‘Unknown’
+Hint: You’ll need to use subqueries / derived tables and group by
+*/
+
+
+/*
+10006
+10021
+10032
+10033
+10043
+10054
+10065
+10076
+10087
+*/
+
+SELECT e.employee_number
+	,ISNULL(mars.marital_status,'Unknown') as marital_status
+FROM employees e
+LEFT JOIN (
+	SELECT ms.person_id,ms.marital_status
+	FROM marital_status ms
+	INNER JOIN (
+		SELECT person_id,MAX(effective_date) as max_date
+		FROM marital_status
+		GROUP BY person_id
+		) mx ON mx.person_id = ms.person_id
+			AND mx.max_date = ms.effective_date
+	) mars ON mars.person_id = e.person_id
+
+
+/*
+2.  Show a list of employees, their job titles, pay value and the average pay for that particular job title
+
+3.  Compare their pay to the average and add a variance column along with a percentage difference between the two
+*/
+
+SELECT e.employee_number
+	,j.job_title
+	,pe.pay_value
+	,CAST(avj.avg_pay as NUMERIC(7,2)) as avg_pay
+	------------------------------------------------
+	,CAST(pe.pay_value-avj.avg_pay as NUMERIC(7,2)) as avg_pay_variance
+	,CAST((pe.pay_value/NULLIF(avj.avg_pay,0))*100 as NUMERIC(4,1)) as avg_pay_var_perc
+FROM employees e
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+							AND pe.job_id = jh.job_id
+INNER JOIN (
+	SELECT job_id,AVG(pay_value) as avg_pay
+	FROM pay_elements 
+	WHERE start_date <= GETDATE()
+	AND COALESCE(end_date,GETDATE()) >= GETDATE()
+	GROUP BY job_id
+	) avj ON avj.job_id = jh.job_id
+
+WHERE e.start_date <= GETDATE()
+AND COALESCE(e.end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND pe.start_date <= GETDATE()
+AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()
+
+

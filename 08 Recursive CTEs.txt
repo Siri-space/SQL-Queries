@@ -1,0 +1,40 @@
+
+/*
+	SELECT *
+	FROM emp_managers emp
+	LEFT JOIN emp_managers man ON emp.mgr_person_id = man.person_id
+	LEFT JOIN emp_managers man2 ON man.mgr_person_id = man2.person_id
+*/
+
+WITH 
+cte_man_hierarchy (person_id,full_name,mgr_person_id,hierarchy_level)
+AS (
+	SELECT person_id
+		,full_name
+		,mgr_person_id
+		,0 as hierarchy_level -- this is hierarchy level 0 for the record at the TOP of the hierarchy
+	FROM emp_managers
+	WHERE mgr_person_id IS NULL	--and this is how we select the record at the TOP of the hierarchy
+
+	UNION ALL
+
+	SELECT em.person_id
+		,em.full_name
+		,em.mgr_person_id
+		,hierarchy_level + 1
+	FROM emp_managers em
+	INNER JOIN cte_man_hierarchy mh ON em.mgr_person_id = mh.person_id	--this links back to the hierarchy level as defined in the first query in the UNION ALL
+	--the CTE then cycles round until it runs out of data to display
+	)
+
+SELECT ch.person_id as emp_person_id
+	,ch.full_name as emp_name
+	,ch.hierarchy_level
+	,em.full_name as manager_name
+FROM cte_man_hierarchy ch
+LEFT JOIN emp_managers em ON ch.mgr_person_id = em.person_id
+ORDER BY ch.hierarchy_level,em.full_name
+
+--INSERT INTO emp_managers VALUES (300,'Jeff Beaverbrook',13)
+--INSERT INTO emp_managers VALUES (301,'Jill Kingsley',13)
+--INSERT INTO emp_managers VALUES (302,'Kelly Nibbotson',301)

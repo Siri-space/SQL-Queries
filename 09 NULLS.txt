@@ -1,0 +1,72 @@
+use sql_training
+
+
+--Add NULL onto any cacullation and it will fail
+SELECT 1 + 2 + NULL
+
+SELECT 1 + '2' + NULL
+
+
+-----------------------------------------------------------------
+--NULLs and strings
+
+SELECT forename	
+	,NULLIF(middle_name,'') as middle_name
+	-------------
+	,forename + ' ' + middle_name + ' ' + surname as full_name
+	,forename + ' ' + ISNULL(middle_name,'') + ' ' + surname as full_name_isnull
+	,forename + ' ' + COALESCE(middle_name,'') + ' ' + surname as full_name_coalesce	-- outputs the first non-null value
+	------------------------------------
+	,forename + ' ' + ISNULL(NULLIF(middle_name,''),'NO MIDDLE NAME') + ' ' + surname as full_name_isnull
+FROM emp_names
+
+
+-----------------------------------------------------------------
+--NULLs and number calculations
+
+SELECT salesman
+	,sales_target
+	,sales_achieved
+	--------------------
+	,ISNULL(sales_achieved,0) - ISNULL(sales_target,0) as sales_variance
+	,CASE
+		WHEN sales_target = 0 THEN NULL
+		WHEN sales_target IS NULL THEN NULL
+		ELSE (ISNULL(sales_achieved,0) / ISNULL(sales_target,0))*100 
+		END as sales_variance_perc
+FROM sales_bonus_nulls
+
+
+-----------------------------------------------------------
+--NULLs and aggregations
+
+SELECT product_name
+	,SUM(quantity) as sum_qty
+	,COUNT(*) as count_rows
+	,COUNT(quantity) as count_qty
+	,AVG(CAST(ISNULL(quantity,0) as NUMERIC(6,3))) as avg_qty
+FROM sales
+GROUP BY product_name
+
+SELECT *
+FROM sales
+WHERE product_name = 'Mousemat'
+
+
+-----------------------------------------------------------------------------------
+
+/*Challenge
+Using the sql_hr..addresses table,
+Create a query which returns two columns, address_id and full address which is all address lines, separated by commas. 
+Be careful where address fields are blank or NULL.
+*/
+
+SELECT address_id
+	,address_line_1,address_line_2,address_line_3,address_line_4,postcode
+	--------
+	,address_line_1  
+		+ CASE WHEN NULLIF(address_line_2,'') IS NULL THEN '' ELSE ', ' + address_line_2 END
+		+ CASE WHEN NULLIF(address_line_3,'') IS NULL THEN '' ELSE ', ' + address_line_3 END
+		+ CASE WHEN NULLIF(address_line_4,'') IS NULL THEN '' ELSE ', ' + address_line_4 END
+		+ '. ' + postcode as formatted_address
+FROM sql_hr..addresses

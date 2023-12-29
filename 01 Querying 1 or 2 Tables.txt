@@ -1,0 +1,103 @@
+-- Querying 1 or 2 tables.
+
+USE sql_sales
+
+/*
+	lesson 1
+	basic query writing
+	with Nick
+*/
+
+--	list of customers called Smith for the boss
+SELECT forename
+	,surname
+FROM customers
+WHERE surname = 'Smith'
+ORDER BY surname
+	,forename
+
+
+--Please provide a list of customers whose surname is Brown. 
+--Include customer_id, title, forename and surname and sort the data by forename
+
+SELECT customer_id
+	,title
+	,forename
+	,surname
+FROM customers
+WHERE surname = 'Brown'
+ORDER BY forename
+
+
+--	list of customers called Smith for the boss
+SELECT c.customer_id
+	,c.title
+	,c.forename
+	,c.surname
+	,ca.address_1
+	,ca.postcode
+FROM customers c
+JOIN customer_addresses ca ON ca.customer_id = c.customer_id
+WHERE c.surname = 'Smith'
+ORDER BY c.surname
+	,c.forename
+
+
+--Please provide a list of customers whose surname is Brown. 
+--Include title, forename, surname and all address fields (lines 1-4 plus postcode, and country code)
+
+SELECT cus.customer_id
+	,cus.title
+	,cus.forename
+	,cus.surname
+	,ad.address_1
+	,ad.address_2
+	,ad.address_3
+	,ad.address_4
+	,ad.postcode
+	,ad.country_code
+FROM customers cus
+JOIN customer_addresses ad ON ad.customer_id = cus.customer_id
+WHERE cus.surname = 'Brown'
+ORDER BY cus.forename
+
+-------------------------------------------------------
+
+/*
+1.	provide a list of products from the sales database – product id, name, desc, current retail price
+2.	provide a list of product groups, product group desc
+3.	now put all that into a single query so its all in one line
+4.	Now add a filter so we’re only seeing accessories
+*/
+
+
+--1.	provide a list of products from the sales database – product id, name, desc, current retail price
+SELECT product_id
+	,product_name
+	,product_desc
+	,current_retail_price
+FROM products
+
+
+--2.	provide a list of product groups, product group desc
+SELECT product_group_desc
+FROM product_groups
+
+--3.	now put all that into a single query so its all in one line
+SELECT p.product_id
+	,p.product_name
+	,p.product_desc
+	,p.current_retail_price
+	,pg.product_group_desc
+FROM products p
+JOIN product_groups pg ON pg.product_group_id = p.product_group_id
+
+--4.	Now add a filter so we’re only seeing accessories
+SELECT p.product_id
+	,p.product_name
+	,p.product_desc
+	,p.current_retail_price
+	,pg.product_group_desc
+FROM products p
+JOIN product_groups pg ON pg.product_group_id = p.product_group_id
+WHERE pg.product_group_desc = 'Accessories'

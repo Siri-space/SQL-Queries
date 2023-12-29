@@ -1,0 +1,167 @@
+WITH
+
+CTE_marital_status as (
+	SELECT ms.person_id,ms.marital_status
+	FROM marital_status ms
+	INNER JOIN (
+		SELECT person_id,MAX(effective_date) as max_date
+		FROM marital_status
+		GROUP BY person_id
+		) mx ON mx.person_id = ms.person_id
+			AND mx.max_date = ms.effective_date
+),
+CTE_addresses as (
+	SELECT address_id
+		,address_line_1  
+			+ CASE WHEN NULLIF(address_line_2,'') IS NULL THEN '' ELSE ', ' + address_line_2 END
+			+ CASE WHEN NULLIF(address_line_3,'') IS NULL THEN '' ELSE ', ' + address_line_3 END
+			+ CASE WHEN NULLIF(address_line_4,'') IS NULL THEN '' ELSE ', ' + address_line_4 END
+			+ '. ' + postcode as formatted_address
+	FROM addresses
+),
+CTE_employees as (
+	SELECT person_id,employee_number,forename,surname,start_date,end_date,address_id
+	FROM employees
+	WHERE DATEDIFF(DAY,start_date,GETDATE()) BETWEEN 0 AND 150
+	UNION
+	SELECT person_id,employee_number,forename,surname,start_date,end_date,address_id
+	FROM employees
+	WHERE DATEDIFF(DAY,end_date,GETDATE()) BETWEEN 0 AND 150
+)
+
+SELECT e.person_id
+	,e.employee_number
+	,mars.marital_status
+	,a.formatted_address
+FROM CTE_employees e
+LEFT JOIN CTE_marital_status mars ON mars.person_id = e.person_id
+LEFT JOIN CTE_addresses a ON a.address_id = e.address_id
+
+
+----------------------------------------------------------------------------------------------------
+--temporary (hash) tables
+
+use sql_hr
+IF OBJECT_ID('tempdb..#employees') IS NOT NULL DROP TABLE #employees -- if table exists, then drop (delete) it
+SELECT person_id,employee_number,forename,surname,start_date,end_date,address_id
+INTO #employees		--builds a table based on your query
+FROM employees
+WHERE DATEDIFF(DAY,start_date,GETDATE()) BETWEEN 0 AND 150
+
+
+INSERT INTO #employees--add records to an existing table
+SELECT person_id,employee_number,forename,surname,start_date,end_date,address_id
+FROM employees
+WHERE DATEDIFF(DAY,end_date,GETDATE()) BETWEEN 0 AND 150
+
+
+INSERT INTO #employees
+SELECT person_id,employee_number,forename,surname,start_date,end_date,address_id
+FROM employees
+WHERE surname = 'Smith'
+
+
+ALTER TABLE #employees add length_of_service INT -- add a new column, define the column name and data type e.g. INT, VARCHAR(30), NUMERIC(8,2) etc.
+
+
+UPDATE #employees	--update the value in any column(s)
+SET length_of_service = FLOOR(DATEDIFF(DAY,start_date,COALESCE(end_date,GETDATE()))/365.25)
+WHERE start_date <= GETDATE()--adda filter so you only update certain rows
+
+
+DELETE FROM #employees WHERE surname = 'Smith' -- delete any specific rows from a table
+
+
+SELECT * FROM #employees
+GO
+-------------------------------------------------------------------------------------------------------------
+/*
+1   Create a query using CTEs to display the following information:
+Using the sql_hr database, list the names, start dates and end dates of 
+male employees between the ages of 20 and 40 inclusive. Also include 
+the date and course title of the LAST training course they took.
+Tables you’ll need are ‘training’ and ‘courses’
+
+Are there any employees who have never completed any training?
+*/
+
+WITH
+CTE_employees AS (
+	SELECT person_id,forename,surname,start_date,end_date
+	FROM employees
+	WHERE gender = 'M'
+	AND FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 20 and 40
+),
+CTE_latest_courses as (
+	SELECT tr.person_id,c.course_name
+	FROM training tr
+	INNER JOIN (
+		SELECT person_id,MAX(course_start_date) as max_start
+		FROM training
+		GROUP BY person_id
+		) ld ON ld.person_id = tr.person_id
+			AND ld.max_start = tr.course_start_date
+	INNER JOIN courses c ON c.course_id = tr.course_id
+)
+
+SELECT e.forename
+	,e.surname
+	,e.start_date
+	,e.end_date
+	,lc.course_name
+FROM CTE_employees e
+LEFT JOIN CTE_latest_courses lc ON lc.person_id = e.person_id
+WHERE lc.person_id IS NULL
+GO
+
+
+
+use sql_sales
+
+/*
+2    Using the sql_sales database and making use of temp tables, list 
+how many of each product the shop has had delivered and has sold and 
+use these figures to work out how many items they have in stock, as 
+of the current time.
+You’ll need to create temp tables for products, sales and deliveries, 
+then join these together
+Fields listed should be product id, product name, product group desc, 
+total deliveries, total sales and quantity in stock
+Try to include a line of code that deletes each temp table before re-building it
+*/
+
+IF OBJECT_ID('tempdb..#products') IS NOT NULL DROP TABLE #products
+SELECT p.product_id
+	,p.product_name
+	,pg.product_group_desc
+INTO #products
+FROM products p
+INNER JOIN product_groups pg ON pg.product_group_id = p.product_group_id
+
+DELETE FROM #products WHERE product_group_desc = 'Accessories'
+
+IF OBJECT_ID('tempdb..#deliveries') IS NOT NULL DROP TABLE #deliveries
+SELECT product_id,SUM(usable_quantity) as qty_del
+INTO #deliveries
+FROM deliveries
+GROUP BY product_id
+
+IF OBJECT_ID('tempdb..#sales') IS NOT NULL DROP TABLE #sales
+SELECT product_id,SUM(quantity) as qty_sold
+INTO #sales
+FROM orders
+GROUP BY product_id
+
+
+
+SELECT p.product_id
+	,p.product_name
+	,p.product_group_desc
+	,d.qty_del
+	,s.qty_sold
+	,d.qty_del - s.qty_sold as in_stock
+FROM #products p
+INNER JOIN #deliveries d ON d.product_id = p.product_id
+INNER JOIN #sales s ON s.product_id = p.product_id
+
+

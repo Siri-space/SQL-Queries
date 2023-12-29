@@ -1,0 +1,139 @@
+
+WITH
+cte_age_bands as (
+	SELECT age_band,COUNT(*) as num_emps
+	FROM (
+		SELECT birth_date
+			,FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) as age
+			,CASE		--	here we determine age band
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 20 THEN '20 and under'
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 21 and 30 THEN '21 to 30'
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 31 and 40 THEN '31 to 40'
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 41 and 50 THEN '41 to 50'
+				ELSE 'Over 50'
+			END as age_band
+		FROM employees
+		) ab
+	WHERE age NOT BETWEEN 21 AND 30
+	GROUP BY age_band
+	)
+
+SELECT [20 and under]
+	,[21 to 30]
+	,[31 to 40]
+	,[41 to 50]
+	,[Over 50]
+FROM cte_age_bands as source_data
+PIVOT (
+	MAX(num_emps)
+	FOR age_band IN ([20 and under],[21 to 30],[31 to 40],[41 to 50],[Over 50])
+	) as pivot_data
+
+---------------------------------------------------------
+
+
+
+;WITH
+cte_age_bands as (
+	SELECT gender,age_band,COUNT(*) as num_emps
+	FROM (
+		SELECT birth_date,gender
+			,FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) as age
+			,CASE		--	here we determine age band
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) <= 20 THEN '20 and under'
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 21 and 30 THEN '21 to 30'
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 31 and 40 THEN '31 to 40'
+				WHEN FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) BETWEEN 41 and 50 THEN '41 to 50'
+				ELSE 'Over 50'
+			END as age_band
+		FROM employees
+		) ab
+	WHERE age NOT BETWEEN 21 AND 30
+	GROUP BY gender,age_band
+	)
+
+SELECT gender
+	,[20 and under]
+	,ISNULL([21 to 30],0) as [21 to 30]
+	,[31 to 40]
+	,[41 to 50]
+	,[Over 50]
+FROM cte_age_bands as source_data
+PIVOT (
+	MAX(num_emps)
+	FOR age_band IN ([20 and under],[21 to 30],[31 to 40],[41 to 50],[Over 50])
+	) as pivot_data
+
+
+---------------------------------------------------------------------------------
+
+/*Gender Pay Analysis
+---------------------
+For each job title, show the average ANNUAL pay, split between current male and female staff members.
+All data as at the current date and time
+*/
+
+;WITH
+cte_pay_data as (
+	SELECT job_title,gender,AVG(annual_sal) as avg_sal
+	FROM (
+		SELECT e.employee_number
+			,e.gender
+			,wp.pattern_mask
+			,LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5 as hours_per_week
+			,pe.pay_type
+			,pe.pay_value
+			,j.job_title
+			,CASE
+				WHEN pe.pay_type = 'salaried' THEN pe.pay_value
+				ELSE (pe.pay_value * (LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5))  * 52.14
+				END as annual_sal
+		FROM employees e
+		INNER JOIN job_history jh ON jh.person_id = e.person_id
+		INNER JOIN jobs j ON j.job_id = jh.job_id
+		INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+								  AND pe.job_id = jh.job_id
+		INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+		INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+		WHERE e.start_date <= GETDATE()
+		AND COALESCE(e.end_date,GETDATE()) >= GETDATE()
+		AND jh.start_date <= GETDATE()
+		AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+		AND pe.start_date <= GETDATE()
+		AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()
+		AND ewp.wp_start_date <= GETDATE()
+		AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+		) jj
+	GROUP BY job_title,gender
+	)
+
+--SELECT DISTINCT ',ISNULL([' + job_title + '],0) as ' + '"' + job_title + '"'
+--FROM cte_pay_data as source_data
+
+
+SELECT gender
+	,ISNULL([Back Office],0) as "Back Office"
+	,ISNULL([Cafe Assistant],0) as "Cafe Assistant"
+	,ISNULL([Cafe Team Leader],0) as "Cafe Team Leader"
+	,ISNULL([Cashier],0) as "Cashier"
+	,ISNULL([Customer Service Assistant],0) as "Customer Service Assistant"
+	,ISNULL([Customer Service Team Leader],0) as "Customer Service Team Leader"
+	,ISNULL([Deputy Manager],0) as "Deputy Manager"
+	,ISNULL([Forklift Operator],0) as "Forklift Operator"
+	,ISNULL([Front of House Team Leader],0) as "Front of House Team Leader"
+	,ISNULL([General Manager],0) as "General Manager"
+	,ISNULL([Security Operative],0) as "Security Operative"
+	,ISNULL([Security Team Leader],0) as "Security Team Leader"
+	,ISNULL([Shelf Stacker],0) as "Shelf Stacker"
+	,ISNULL([Training Manager],0) as "Training Manager"
+	,ISNULL([Warehouse Operative],0) as "Warehouse Operative"
+	,ISNULL([Warehouse Team Leader],0) as "Warehouse Team Leader"
+FROM cte_pay_data as source_data
+PIVOT (
+	MAX(avg_sal)
+	FOR job_title IN ([Back Office],[Cafe Assistant],[Cafe Team Leader],[Cashier],[Customer Service Assistant],[Customer Service Team Leader],[Deputy Manager]
+		,[Forklift Operator],[Front of House Team Leader],[General Manager],[Security Operative],[Security Team Leader],[Shelf Stacker]
+		,[Training Manager],[Warehouse Operative],[Warehouse Team Leader])
+		) as pivot_data
+
+

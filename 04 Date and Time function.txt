@@ -1,0 +1,137 @@
+use sql_hr
+
+--GETDATE(). Returns the current date and time
+--	SELECT GETDATE()
+
+SELECT *
+FROM employees
+WHERE start_date > GETDATE()
+
+
+--DATEADD
+--INTERVAL, INCREMENT, EXPRESSION
+--YEAR, quarter, month, week, day, hour, minute, second, millisecond
+SELECT GETDATE() as right_now,DATEADD(DAY,1,GETDATE()) as add_1_day
+SELECT GETDATE() as right_now,DATEADD(YEAR,-1,GETDATE()) as one_yr_ago
+SELECT GETDATE() as right_now,DATEADD(WEEK,26,GETDATE()) as twenty_six_weeks
+
+
+--DATEDIFF
+--INTERVAL, STARTING DATE, ENDING DATE
+
+SELECT DATEDIFF(DAY,GETDATE(),'2022-12-25') as days_till_cmas
+SELECT DATEDIFF(DAY,'2022-01-01',GETDATE()) as days_this_year
+SELECT DATEDIFF(MINUTE,GETDATE(),DATEADD(DAY,1,GETDATE())) as mins_in_day
+SELECT DATEDIFF(SECOND,GETDATE(),DATEADD(DAY,1,GETDATE())) as seconds_in_day
+
+
+
+SELECT birth_date
+	,FLOOR(DATEDIFF(DAY,birth_date,GETDATE())/365.25) as age
+FROM employees
+WHERE end_date IS NOT NULL
+
+
+--DATEPART
+--INTERVAL, DATE
+--YEAR, quarter, month, week, day, hour, minute, second, millisecond
+
+SET DATEFIRST 1--first day is Monday
+SET DATEFIRST 4--first day is Thursday
+SET DATEFIRST 7-- first day is Sunday
+
+
+SELECT GETDATE() as today
+	,DATEPART(DAY,GETDATE()) as day_of_month
+	,DATEPART(MONTH,GETDATE()) as month_num
+	,DATEPART(WEEK,GETDATE()) as week_num
+	,DATEPART(WEEKDAY,GETDATE()) as week_day
+	,DATEPART(YEAR,GETDATE()) as year_no
+
+--DATENAME
+--INTERVAL, DATE
+--YEAR, quarter, month, week, day, hour, minute, second, millisecond
+SELECT GETDATE() as today
+	,DATENAME(DAY,GETDATE()) as day_of_month
+	,DATENAME(MONTH,GETDATE()) as month_num
+	,DATENAME(WEEKDAY,GETDATE()) as wek_day
+	,DATENAME(YEAR,GETDATE()) as year_no
+
+
+
+SELECT *
+FROM employees
+WHERE start_date = DATEADD(DAY,DATEDIFF(DAY,0,GETDATE()),0)
+
+
+
+SELECT DATEADD(DAY,DATEDIFF(DAY,0,GETDATE()),0) as today_midnight
+SELECT DATEADD(WEEK,DATEDIFF(WEEK,0,GETDATE()),0) as start_of_week
+SELECT DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0) as start_of_month
+SELECT DATEADD(QUARTER,DATEDIFF(QUARTER,0,GETDATE()),0) as start_of_quarter
+SELECT DATEADD(YEAR,DATEDIFF(YEAR,0,GETDATE()),0) as start_of_year
+
+SELECT start_date
+	,FORMAT(start_date,'dd_MM^yyyy') as example
+	,FORMAT(start_date,'dd') as day_num
+	,FORMAT(start_date,'ddd') as day_name_abbrev
+	,FORMAT(start_date,'MM') as month_num
+	,FORMAT(start_date,'MMM') as month_name
+	,FORMAT(start_date,'yyyy') as full_year_no
+	,FORMAT(start_date,'yy') as full_year_no
+FROM employees
+
+SELECT GETDATE() as the_now
+	,FORMAT(GETDATE(),'hh') as hours_no
+	,FORMAT(GETDATE(),'HH') as hours_no
+	,FORMAT(GETDATE(),'mm') as mins_no
+	,FORMAT(GETDATE(),'ss') as seconds
+	,FORMAT(GETDATE(),'dd/MM/yyyy HH:mm:ss') as full_date_and_time
+
+
+
+---------------------------------------------------------------------------------------------------------------
+
+--1. List all order lines from the Sales database where the order date is in the current month of the previous year
+
+SELECT *
+FROM sql_sales.dbo.orders
+WHERE order_date >= DATEADD(YEAR,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0))
+AND order_date < DATEADD(MONTH,1,DATEADD(YEAR,-1,DATEADD(MONTH,DATEDIFF(MONTH,0,GETDATE()),0)))
+order by order_date
+
+
+--2. List all sales orders taken last year
+SELECT *
+FROM sql_sales.dbo.orders
+WHERE DATEPART(YEAR,order_date) = DATEPART(YEAR,DATEADD(YEAR,-1,GETDATE()))
+
+
+--3. List all sales orders taken on Mondays. List them in date order
+SELECT *
+FROM sql_sales.dbo.orders
+WHERE DATENAME(WEEKDAY,order_date) = 'Monday'
+order by order_date
+
+
+--4. Display the length of service for employees. Show this in two columns: Full years and then months
+
+SELECT start_date
+	,FLOOR(DATEDIFF(DAY,start_date,GETDATE())/365.25) as full_years
+	,DATEDIFF(MONTH,start_date,GETDATE())
+		- (FLOOR(DATEDIFF(DAY,start_date,GETDATE())/365.25) * 12) as full_months
+FROM employees
+order by start_date
+
+
+
+
+
+
+
+
+
+
+
+
+

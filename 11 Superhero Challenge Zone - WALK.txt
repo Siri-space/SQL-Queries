@@ -1,0 +1,80 @@
+use sql_hr
+
+--work req 1: Data Extract of all current employees
+
+
+SELECT e.employee_number as "Employee Number"
+	,e.surname + ', ' + e.forename as "Full Name"
+	,CONVERT(VARCHAR(10),e.start_date,103) as "Employee Start Date"
+	,CONVERT(VARCHAR(10),e.end_date,103) as "Employee End Date"
+	,FLOOR(DATEDIFF(DAY,e.start_date,GETDATE())/365.25) as "Length of Service"
+	,j.job_title as "Current Job Role"
+	,CONVERT(VARCHAR(10),jh.start_date,103) as "Job Role Start Date"
+	,CONVERT(VARCHAR(10),jh.end_date,103) as "Job Role End Date"
+	,LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5 as "Weekly Hours Worked"	--replace all 'N's with blank string, then count the characters in the field
+	,pe.pay_type
+	,pe.pay_value
+	,CAST(CASE 
+		WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 52.14
+		WHEN pe.pay_type = 'hourly paid' THEN (LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * pe.pay_value
+		END  as NUMERIC(6,2)) as "Weekly Pay"
+FROM employees e
+----------------------------
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+INNER JOIN jobs j ON j.job_id = jh.job_id
+----------------------------
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+						AND pe.job_id = jh.job_id
+----------------------------
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+----------------------------
+WHERE e.start_date <= GETDATE()							--		needs to evaluate to 'true'
+AND COALESCE(e.end_date,GETDATE()) >= GETDATE()			--		needs to evaluate to 'true'
+----------------------------
+AND jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND ewp.wp_start_date <= GETDATE()
+AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND pe.start_date <= GETDATE()
+AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()
+----------------------------
+ORDER BY e.start_date
+
+
+-------------------------------------------------------------
+
+--work req 2: Monthly Wage Costs, and Salary review Analysis
+
+SELECT 
+	CAST(SUM(CASE	
+		WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 12
+		WHEN pe.pay_type = 'hourly paid' THEN (((LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * 52.14)/12) * pe.pay_value
+		END) as NUMERIC(8,2))   as "Total Monthly Wage Cost"
+	,CAST(SUM(CASE	
+		WHEN pe.pay_type = 'salaried' THEN pe.pay_value / 12
+		WHEN pe.pay_type = 'hourly paid' THEN (((LEN(REPLACE(wp.pattern_mask,'N','')) * 7.5) * 52.14)/12) * pe.pay_value
+		END) * 1.1 AS NUMERIC(8,2))  as "Plus 10 % Increase"
+FROM employees e
+----------------------------
+INNER JOIN job_history jh ON jh.person_id = e.person_id
+----------------------------
+INNER JOIN pay_elements pe ON pe.person_id = jh.person_id
+						AND pe.job_id = jh.job_id
+----------------------------
+INNER JOIN employee_work_patterns ewp ON ewp.person_id = e.person_id
+INNER JOIN work_patterns wp ON wp.work_pattern_id = ewp.work_pattern_id
+----------------------------
+WHERE e.start_date <= GETDATE()							--		needs to be true
+AND COALESCE(e.end_date,GETDATE()) >= GETDATE()			--		needs to be true
+----------------------------
+AND jh.start_date <= GETDATE()
+AND COALESCE(jh.end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND ewp.wp_start_date <= GETDATE()
+AND COALESCE(ewp.wp_end_date,GETDATE()) >= GETDATE()
+----------------------------
+AND pe.start_date <= GETDATE()
+AND COALESCE(pe.end_date,GETDATE()) >= GETDATE()

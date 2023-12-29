@@ -1,0 +1,44 @@
+USE sql_sales;
+
+/*	3. Create an analysis of product sales (by product group) of the previous month, versus the 
+	same month in the previous year.
+
+	Display product group name, sales for the previous month, sales for the previous month last year, 
+	then a column to show +, - or = depending on whether the sales in the previous month were greater, 
+	less or equal to the same month in the previous year and then a variance column to show the actual 
+	difference. The variance column should only show positive numbers. Any negatives should be denoted 
+	by the plus_minus column.
+
+	NB: A negative number can be made positive by multiplying by -1
+*/
+WITH
+cte_last_month as (
+	SELECT product_id,SUM(quantity) as sales_prev_month
+	FROM orders o
+	WHERE DATEDIFF(MONTH,order_date,GETDATE()) = 1
+	GROUP BY product_id
+)
+,cte_last_year as (
+	SELECT product_id,SUM(quantity) as sales_prev_year
+	FROM orders o
+	WHERE DATEDIFF(MONTH,order_date,GETDATE()) = 13
+	GROUP BY product_id
+)
+
+SELECT pg.product_group_desc
+	,SUM(ISNULL(lm.sales_prev_month,0)) as sales_prev_month
+	,SUM(ISNULL(ly.sales_prev_year,0)) as sales_prev_year
+	--------------------------------------------
+	,CASE 
+		WHEN SUM(ISNULL(lm.sales_prev_month,0)) - SUM(ISNULL(ly.sales_prev_year,0)) > 0 THEN '+'
+		WHEN SUM(ISNULL(lm.sales_prev_month,0)) - SUM(ISNULL(ly.sales_prev_year,0)) < 0 THEN '-'
+		ELSE '=' END as plus_minus
+	,CASE
+		WHEN SUM(ISNULL(lm.sales_prev_month,0)) - SUM(ISNULL(ly.sales_prev_year,0)) > 0 THEN SUM(ISNULL(lm.sales_prev_month,0)) - SUM(ISNULL(ly.sales_prev_year,0))
+		WHEN SUM(ISNULL(lm.sales_prev_month,0)) - SUM(ISNULL(ly.sales_prev_year,0)) < 0 THEN (SUM(ISNULL(lm.sales_prev_month,0)) - SUM(ISNULL(ly.sales_prev_year,0))) * -1
+		END as sales_variance
+FROM products p
+INNER JOIN product_groups pg ON pg.product_group_id = p.product_group_id
+LEFT JOIN cte_last_month lm ON lm.product_id = p.product_id
+LEFT JOIN cte_last_year ly ON ly.product_id = p.product_id
+GROUP BY pg.product_group_desc
